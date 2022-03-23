@@ -423,6 +423,9 @@ function StreamProcessor(config) {
                     scheduleController.setInitSegmentRequired(true);
                     _noValidRequest();
                 }
+                else {
+                    errHandler.error(new DashJSError(Errors.DOWNLOAD_ERROR_ID_INITIALIZATION_CODE, 'Init fragment is not available'));
+                }
             }
         }
     }
@@ -509,6 +512,9 @@ function StreamProcessor(config) {
         if (rescheduleIfNoRequest) {
             _noValidRequest();
         }
+        else {
+            errHandler.error(new DashJSError(Errors.DOWNLOAD_ERROR_ID_CONTENT_CODE, 'Fragment is not available'));
+        }
     }
 
     function _getAdjustedTimeForStaticManifest(representation) {
@@ -546,6 +552,9 @@ function StreamProcessor(config) {
 
             if (rescheduleIfNoRequest) {
                 _noValidRequest();
+            }
+            else {
+                errHandler.error(new DashJSError(Errors.DOWNLOAD_ERROR_ID_CONTENT_CODE, 'Fragment is not available'));
             }
         }
     }

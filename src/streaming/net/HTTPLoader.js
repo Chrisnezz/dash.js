@@ -349,10 +349,12 @@ function HTTPLoader(cfg) {
                     return;
                 }
 
-                errHandler.error(new DashJSError(downloadErrorToRequestTypeMap[requestObject.type], requestObject.url + ' is not available', {
-                    request: requestObject,
-                    response: commonMediaResponse
-                }));
+                if (requestObject.type != HTTPRequest.INIT_SEGMENT_TYPE && requestObject.type != HTTPRequest.MEDIA_SEGMENT_TYPE) {
+                    errHandler.error(new DashJSError(downloadErrorToRequestTypeMap[requestObject.type], requestObject.url + ' is not available', {
+                        request: requestObject,
+                        response: commonMediaResponse
+                    }));
+                }
 
                 if (config.error) {
                     config.error(requestObject, 'error', commonMediaResponse.statusText, commonMediaResponse);
