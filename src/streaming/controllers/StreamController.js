@@ -1629,6 +1629,7 @@ function StreamController() {
         // Reset MSE
         logger.info(`MediaSource has been resetted. Resuming playback from time ${seekTime}`);
         _openMediaSource({ seekTime, keepBuffers: false, streamActivated: false });
+        playbackController.play();
     }
 
     function getActiveStreamInfo() {
