@@ -85,7 +85,8 @@ function DVBErrorsTranslator(config) {
 
     function onBecameReporter() {
         report({
-            errorcode: DVBErrors.BECAME_REPORTER
+            errorcode: DVBErrors.BECAME_REPORTER,
+            servicelocation: (mpd.BaseURL ? mpd.BaseURL.serviceLocation : undefined)
         });
     }
 
