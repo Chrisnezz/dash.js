@@ -97,7 +97,7 @@ function DVBErrorsTranslator(config) {
             (vo.responsecode < 100) || // unknown status codes
             (vo.responsecode >= 600)) { // unknown status codes
             report({
-                errorcode: vo.responsecode || DVBErrors.CONNECTION_ERROR,
+                errorcode: (vo.responsecode === 0 ? DVBErrors.DNS_RESOLUTION_FAILED : null) || DVBErrors.CONNECTION_ERROR,
                 url: vo.url,
                 terror: vo.tresponse,
                 servicelocation: vo._serviceLocation
