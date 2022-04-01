@@ -96,12 +96,24 @@ function DVBErrorsTranslator(config) {
             (vo.responsecode >= 400) || // HTTP error status code
             (vo.responsecode < 100) || // unknown status codes
             (vo.responsecode >= 600)) { // unknown status codes
-            report({
-                errorcode: (vo.responsecode === 0 ? DVBErrors.DNS_RESOLUTION_FAILED : null) || DVBErrors.CONNECTION_ERROR,
-                url: vo.url,
-                terror: vo.tresponse,
-                servicelocation: vo._serviceLocation
-            });
+            let domainName = vo.url;
+            domainName = domainName.replace(/http(s){0,1}:\/\/(www\\.){0,1}/g, "");
+            domainName = domainName.substring(0, domainName.indexOf("/"));
+            const xhr = new XMLHttpRequest();
+            xhr.responseType = 'json';
+            xhr.timeout = 5000;
+            xhr.onreadystatechange = function () {
+                if (xhr.readyState != 4) return;
+                report({
+                    errorcode:          (vo.responsecode === 0 ? DVBErrors.DNS_RESOLUTION_FAILED : null) || DVBErrors.CONNECTION_ERROR,
+                    url:                vo.url,
+                    terror:             vo.tresponse,
+                    servicelocation:    vo._serviceLocation,
+                    ipaddress:          (xhr.response && xhr.response.Answer && xhr.response.Answer[0] ? xhr.response.Answer[0].data : undefined)
+                });
+            };
+            xhr.open('GET', "https://dns.google/resolve?name=" + domainName);
+            xhr.send();
         }
     }
 
