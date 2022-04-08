@@ -551,6 +551,18 @@ function DashAdapter() {
         return events;
     }
 
+    // RepresentationInfo path from the original patch is dropped: that vo class no longer exists post-refactor and was unsupported anyway.
+    function getEventStreamsFor(info) {
+        var eventStreams = [];
+
+        if (voPeriods.length > 0) {
+            if (info instanceof StreamInfo) {
+                eventStreams = dashManifestModel.getEventStreamsForPeriod(getPeriodForStreamInfo(info, voPeriods));
+            }
+        }
+
+        return eventStreams;
+    }
 
     /**
      * Check if the given type is a text track
@@ -1331,6 +1343,7 @@ function DashAdapter() {
         getDuration,
         getEssentialProperties,
         getEvent,
+        getEventStreamsFor,
         getEventsFor,
         getFramerate,
         getIndexForRepresentation,

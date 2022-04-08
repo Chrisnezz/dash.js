@@ -1359,6 +1359,13 @@ function DashManifestModel() {
         return events;
     }
 
+    function getEventStreamsForPeriod(period) {
+        var manifest = period && period.mpd && period.mpd.manifest ? period.mpd.manifest : null;
+        var periodArray = manifest ? manifest.Period_asArray : null;
+        var eventStreams = periodArray && period && isInteger(period.index) ? periodArray[period.index].EventStream_asArray : null;
+        return eventStreams;
+    }
+
     function getEventStreams(inbandStreams, representation, period) {
         const eventStreams = [];
         let i;
@@ -1751,6 +1758,7 @@ function DashManifestModel() {
         getEssentialProperties,
         getEventStreamForAdaptationSet,
         getEventStreamForRepresentation,
+        getEventStreamsForPeriod,
         getEventsForPeriod,
         getFramerate,
         getId,

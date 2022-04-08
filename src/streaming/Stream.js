@@ -852,11 +852,81 @@ function Stream(config) {
         }
     }
 
+    // Serializes an EventStream event's child nodes back into an XML-ish string for cue.data (ported from the Daniels/HybridTvViewer patch).
+    function _cleanChildrenToXmlString(node, name) {
+        var out = '';
+        for (const [key, val] of Object.entries(node)) {
+            if ((key !== '__children') && (key !== '__prefix') &&
+                !key.endsWith('_asArray') && !node.hasOwnProperty(key + '_asArray')) {
+                out += ' ' + key + '="' + val + '"';
+            }
+        }
+        out += '>';
+        if (node.__children) {
+            node.__children.forEach(function (item) {
+                out += _cleanChildrenToXmlString(item[Object.keys(item)[0]], 'scte35:' + Object.keys(item)[0]);
+            });
+        }
+        return '<' + name + out + '</' + name + '>';
+    }
+
     function _addInlineEvents() {
         if (eventController) {
             const events = adapter.getEventsFor(streamInfo);
             if (events && events.length > 0) {
                 eventController.addInlineEvents(events, streamInfo.id);
+            }
+
+            var eventStreams = adapter.getEventStreamsFor(streamInfo);
+            if (eventStreams) {
+                for (var i = 0; i < eventStreams.length; i++) {
+                    var eventStream = eventStreams[i];
+                    var track = videoModel.addTextTrack2("metadata", "", "", false, false, eventStream.schemeIdUri + " " + eventStream.value);
+                    var timescale = eventStream.hasOwnProperty('timescale') ? eventStream.timescale : 1;
+
+                    if (!eventStream.Event_asArray) continue;
+                    for (var z = 0; z < eventStream.Event_asArray.length; z++) {
+                        var event = eventStream.Event_asArray[z];
+                        var startTime = (event.hasOwnProperty('presentationTime')) ? event.presentationTime / timescale : 0;
+                        var endTime;
+                        var base64ContentEncoding = (event.hasOwnProperty('contentEncoding') && (event.contentEncoding === 'base64'));
+                        if (event.hasOwnProperty('duration')) {
+                            if (event.duration / timescale < 0.25) {
+                                endTime = (startTime + 250) / timescale;
+                            } else {
+                                endTime = (startTime * timescale + event.duration) / timescale;
+                            }
+                        } else {
+                            endTime = Number.MAX_VALUE;
+                        }
+                        // Cue text is not used by consumers (DataCue-style metadata track); kept empty rather than the original patch's debug placeholder.
+                        var cue = new VTTCue(startTime, endTime, "");
+                        cue.id = (event.hasOwnProperty('id')) ? event.id : "";
+                        cue.pauseOnExit = false;
+
+                        var str = null;
+                        if (!event.__children) {
+                            str = event;
+                        } else if ((event.__children.length === 1) && (event.__children[0].hasOwnProperty('#text'))) {
+                            if (base64ContentEncoding) {
+                                str = atob(event.__children[0]['#text']);
+                            } else {
+                                str = event.__children[0]['#text'];
+                            }
+                        } else {
+                            str = _cleanChildrenToXmlString(event, "Event");
+                        }
+                        if (str) {
+                            var buf = new ArrayBuffer(str.length);
+                            var bufView = new Uint8Array(buf);
+                            for (var si = 0; si < str.length; si++) {
+                                bufView[si] = str.charCodeAt(si);
+                            }
+                            cue.data = buf;
+                        }
+                        track.addCue(cue);
+                    }
+                }
             }
         }
     }
