@@ -29,6 +29,10 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  */
 
+import VideoModel from './src/streaming/models/VideoModel.js';
+import TextTracks from './src/streaming/text/TextTracks.js';
+import TextTrackInfo from './src/streaming/vo/TextTrackInfo.js';
+import TTMLParser from './src/streaming/utils/TTMLParser.js';
 import MediaPlayer from './src/streaming/MediaPlayer.js';
 import FactoryMaker from './src/core/FactoryMaker.js';
 import Debug from './src/core/Debug.js';
@@ -42,10 +46,14 @@ if (!dashjs) {
     dashjs = context.dashjs = {};
 }
 
+dashjs.VideoModel = VideoModel;
+dashjs.TextTracks = TextTracks;
+dashjs.TextTrackInfo = TextTrackInfo;
+dashjs.TTMLParser = TTMLParser;
 dashjs.MediaPlayer = MediaPlayer;
 dashjs.FactoryMaker = FactoryMaker;
 dashjs.Debug = Debug;
 dashjs.Version = getVersionString();
 
 export default dashjs;
-export { MediaPlayer, FactoryMaker, Debug};
+export { MediaPlayer, FactoryMaker, Debug, VideoModel, TextTracks, TextTrackInfo, TTMLParser };

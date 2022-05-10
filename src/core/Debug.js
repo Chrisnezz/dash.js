@@ -31,6 +31,7 @@
 import EventBus from './EventBus.js';
 import Events from './events/Events.js';
 import FactoryMaker from './FactoryMaker.js';
+import Settings from './Settings.js';
 
 const LOG_LEVEL_NONE = 0;
 const LOG_LEVEL_FATAL = 1;
@@ -49,7 +50,7 @@ function Debug(config) {
     config = config || {};
     const context = this.context;
     const eventBus = EventBus(context).getInstance();
-    const settings = config.settings;
+    const settings = config.settings || Settings(context).getInstance();
 
     const logFn = [];
 
