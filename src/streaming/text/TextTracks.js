@@ -157,7 +157,7 @@ function TextTracks(config) {
             if (textTrack) {
                 //each time a track is created, its mode should be showing by default
                 //sometime, it's not on Chrome
-                textTrack.mode = Constants.TEXT_SHOWING;
+                // textTrack.mode = Constants.TEXT_SHOWING;
                 if (captionContainer && (textTrackInfos[i].isTTML || textTrackInfos[i].isEmbedded)) {
                     textTrack.renderingType = 'html';
                 } else {
