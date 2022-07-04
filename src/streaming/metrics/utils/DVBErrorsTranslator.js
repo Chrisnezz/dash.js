@@ -101,7 +101,7 @@ function DVBErrorsTranslator(config) {
                 url:                vo.url,
                 terror:             vo.tresponse,
                 servicelocation:    vo._serviceLocation,
-                ipaddress:          ""
+                ipaddress:          ''
             };
             
             if (vo.responsecode === 0) {
