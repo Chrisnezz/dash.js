@@ -1130,4 +1130,3 @@ function TextTracks(config) {
 
 TextTracks.__dashjs_factory_name = 'TextTracks';
 export default FactoryMaker.getClassFactory(TextTracks);
-

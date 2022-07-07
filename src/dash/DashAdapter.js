@@ -192,8 +192,26 @@ function DashAdapter() {
             j,
             ln;
 
+        if (embeddedText) {
+            let eventStreams = dashManifestModel.getEventStreamsForPeriod(period);
+            if (eventStreams) {
+                for (i = 0; i < eventStreams.length; i++) {
+                    let events = eventStreams[i].Event_asArray;
+                    if (events) {
+                        media = convertEventStreamToMediaInfo(eventStreams[i]);
+                        media.streamInfo = streamInfo;
+                        const timescale = eventStreams[i].hasOwnProperty('timescale') ? eventStreams[i].timescale : 1;
+                        for (j = 0; j < events.length; j++) {
+                            media.captionData.push(convertEventToCaptionData(events[j], timescale));
+                        }
+                        mediaArr.push(media);
+                    }
+                }
+            }
+        }
+
         if (!adaptations || adaptations.length === 0) {
-            return [];
+            return mediaArr;
         }
 
         const voAdaptations = dashManifestModel.getAdaptationsForPeriod(period);
@@ -549,19 +567,6 @@ function DashAdapter() {
         }
 
         return events;
-    }
-
-    // RepresentationInfo path from the original patch is dropped: that vo class no longer exists post-refactor and was unsupported anyway.
-    function getEventStreamsFor(info) {
-        var eventStreams = [];
-
-        if (voPeriods.length > 0) {
-            if (info instanceof StreamInfo) {
-                eventStreams = dashManifestModel.getEventStreamsForPeriod(getPeriodForStreamInfo(info, voPeriods));
-            }
-        }
-
-        return eventStreams;
     }
 
     /**
@@ -1235,6 +1240,43 @@ function DashAdapter() {
         return adaptationSetSwitchingCompatibleIds
     }
 
+    function convertEventStreamToMediaInfo(eventStream) {
+        let mediaInfo = new MediaInfo();
+        mediaInfo.id = constants.CC1;
+        mediaInfo.lang = 'eng';
+        mediaInfo.type = constants.TEXT;
+        mediaInfo.isEmbedded = false;
+        mediaInfo.isTTML = false;
+        mediaInfo.roles = ['caption'];
+        mediaInfo.accessibility = [];
+        mediaInfo.audioChannelConfiguration = [];
+        mediaInfo.captionData = [];
+        mediaInfo.inBandMetadataTrackDispatchType = eventStream.schemeIdUri + ' ' + eventStream.value;
+        return mediaInfo;
+    }
+
+    function convertEventToCaptionData(event, timescale) {
+        let startTime = (event.hasOwnProperty('presentationTime')) ? event.presentationTime / timescale : 0;
+        let endTime;
+        if (event.hasOwnProperty('duration')) {
+            if (event.duration / timescale < 0.25) {
+                endTime = (startTime + 250) / timescale;
+            }
+            else {
+                endTime = (startTime * timescale + event.duration) / timescale;
+            }
+        }
+        else {
+            endTime = Number.MAX_VALUE;
+        }
+        return {
+            start: startTime,
+            end: endTime,
+            data: event.toString(),
+            id: event.id
+        };
+    }
+
     function convertVideoInfoToEmbeddedTextInfo(mediaInfo, channel, lang) {
         mediaInfo.id = channel; // CC1, CC2, CC3, or CC4
         mediaInfo.index = 100 + parseInt(channel.substring(2, 3));
@@ -1343,7 +1385,6 @@ function DashAdapter() {
         getDuration,
         getEssentialProperties,
         getEvent,
-        getEventStreamsFor,
         getEventsFor,
         getFramerate,
         getIndexForRepresentation,

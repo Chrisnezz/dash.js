@@ -515,20 +515,6 @@ function VideoModel() {
         return null;
     }
 
-    function getTextTrack2(kind, label, lang, isTTML, isEmbedded, inBandMetadataTrackDispatchType) {
-        if (element) {
-            for (var i = 0; i < element.textTracks.length; i++) {
-                //label parameter could be a number (due to adaptationSet), but label, the attribute of textTrack, is a string => to modify...
-                //label could also be undefined (due to adaptationSet)
-                if (element.textTracks[i].kind === kind && (label ? element.textTracks[i].label == label : true) && element.textTracks[i].language === lang && element.textTracks[i].isTTML === isTTML && element.textTracks[i].isEmbedded === isEmbedded && element.textTracks[i].inBandMetadataTrackDispatchType === inBandMetadataTrackDispatchType) {
-                    return element.textTracks[i];
-                }
-            }
-        }
-
-        return null;
-    }
-
     function addTextTrack(kind, label, lang, isTTML, isEmbedded) {
         if (!element) {
             return null;
@@ -540,22 +526,6 @@ function VideoModel() {
             track = element.addTextTrack(kind, label, lang);
             track.isEmbedded = isEmbedded;
             track.isTTML = isTTML;
-        }
-        return track;
-    }
-    
-    function addTextTrack2(kind, label, lang, isTTML, isEmbedded, inBandMetadataTrackDispatchType) {
-        if (!element) {
-            return null;
-        }
-        // check if track of same type has not been already created for previous stream
-        // then use it (no way to remove existing text track from video element)
-        var track = getTextTrack2(kind, label, lang, isTTML, isEmbedded, inBandMetadataTrackDispatchType);
-        if (!track) {
-            track = element.addTextTrack(kind, label, lang);
-            track.isEmbedded = isEmbedded;
-            track.isTTML = isTTML;
-            track.inBandMetadataTrackDispatchType = inBandMetadataTrackDispatchType;
         }
         return track;
     }
@@ -616,8 +586,6 @@ function VideoModel() {
     instance = {
         addEventListener,
         addTextTrack,
-        getTextTrack2,
-        addTextTrack2,
         appendChild,
         destroy,
         getBufferRange,
