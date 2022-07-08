@@ -27,8 +27,8 @@
 		"node": ">=20"
 	},
 	"scripts": {
-		"build": "concurrently \"npm run webpack-build-modern\" \"npm run webpack-build-legacy\" && node build/add_orb_namespace.js",
-		"build:dist": "rimraf dist && tsc && npm run webpack-build-modern && npm run webpack-build-legacy && node build/add_orb_namespace.js",
+		"build": "concurrently \"npm run webpack-build-modern\" \"npm run webpack-build-legacy\" && node build/orb.js",
+		"build:dist": "rimraf dist && tsc && npm run webpack-build-modern && npm run webpack-build-legacy && node build/orb.js",
 		"build-legacy": "npm run prebuild && npm run webpack-build-legacy",
 		"build-modern": "npm run prebuild && npm run webpack-build-modern",
 		"ci:verify": "rimraf dist && tsc && npm run test && npm run lint",
