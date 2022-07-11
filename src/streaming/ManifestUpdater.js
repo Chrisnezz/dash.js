@@ -46,6 +46,8 @@ function ManifestUpdater() {
     const context = this.context;
     const eventBus = EventBus(context).getInstance();
     const urlUtils = URLUtils(context).getInstance();
+    const MPD_RELOAD_SCHEME = 'urn:mpeg:dash:event:2012';
+    const MPD_RELOAD_VALUE = 3; // for the MDP_RELOAD_SCHEME value 2 should be treated as 1 (TS 103 285 - V1.2.1, 9.1.4)
 
     let adapter,
         contentSteeringController,
@@ -61,7 +63,8 @@ function ManifestUpdater() {
         manifestModel,
         refreshDelay,
         refreshTimer,
-        settings;
+        settings,
+        inbandEventStreams;
 
 
     function setup() {
@@ -110,6 +113,7 @@ function ManifestUpdater() {
         eventBus.on(MediaPlayerEvents.PLAYBACK_STARTED, _onPlaybackStarted, this);
         eventBus.on(MediaPlayerEvents.PLAYBACK_PAUSED, _onPlaybackPaused, this);
         eventBus.on(Events.INTERNAL_MANIFEST_LOADED, _onManifestLoaded, this);
+        eventBus.on(MediaPlayerEvents.REPRESENTATION_SWITCH, _onRepresentationSwitched, this);
     }
 
     function setManifest(manifest) {
@@ -121,6 +125,7 @@ function ManifestUpdater() {
         isUpdating = false;
         isPaused = true;
         isStopped = false;
+        inbandEventStreams = {};
         _stopManifestRefreshTimer();
     }
 
@@ -129,6 +134,7 @@ function ManifestUpdater() {
         eventBus.off(MediaPlayerEvents.PLAYBACK_PAUSED, _onPlaybackPaused, this);
         eventBus.off(Events.STREAMS_COMPOSED, _onStreamsComposed, this);
         eventBus.off(Events.INTERNAL_MANIFEST_LOADED, _onManifestLoaded, this);
+        eventBus.off(MediaPlayerEvents.REPRESENTATION_SWITCH, _onRepresentationSwitched, this);
 
         locationSelector.reset();
 
@@ -145,7 +151,7 @@ function ManifestUpdater() {
     function startManifestRefreshTimer(delay) {
         _stopManifestRefreshTimer();
 
-        if (isStopped) {
+        if (isStopped || hasInbandEventStreams()) {
             return;
         }
 
@@ -333,6 +339,21 @@ function ManifestUpdater() {
         period.AdaptationSet.push(externalSubtitle.serializeToMpdParserFormat());
     }
 
+    function _onRepresentationSwitched(e) {
+        const hadInbandEventStreams = hasInbandEventStreams();
+        const inbandEventStream = e.currentRepresentation[DashConstants.INBAND_EVENT_STREAM];
+        if (inbandEventStream && inbandEventStream.schemeIdUri === MPD_RELOAD_SCHEME && parseInt(inbandEventStream.value) & MPD_RELOAD_VALUE) {
+            inbandEventStreams[e.mediaType] = inbandEventStream;
+        }
+        else {
+            inbandEventStreams[e.mediaType] = undefined;
+        }
+
+        if (hadInbandEventStreams === (!inbandEventStreams[e.mediaType])) {
+            startManifestRefreshTimer();
+        }
+    }
+
     function _onPlaybackStarted(/*e*/) {
         isPaused = false;
         startManifestRefreshTimer();
@@ -353,6 +374,15 @@ function ManifestUpdater() {
 
     function getIsUpdating() {
         return isUpdating;
+    }
+    
+    function hasInbandEventStreams() {
+        for (const ies in inbandEventStreams) {
+            if (inbandEventStreams[ies]) {
+                return true;
+            }
+        }
+        return false;
     }
 
     instance = {

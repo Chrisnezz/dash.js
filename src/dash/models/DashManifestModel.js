@@ -862,6 +862,9 @@ function DashManifestModel() {
         if (realRepresentation.hasOwnProperty(DashConstants.MAX_PLAYOUT_RATE)) {
             voRepresentation.maxPlayoutRate = realRepresentation.maxPlayoutRate;
         }
+        if (realRepresentation.hasOwnProperty(DashConstants.INBAND_EVENT_STREAM)) {
+            voRepresentation[DashConstants.INBAND_EVENT_STREAM] = realRepresentation[DashConstants.INBAND_EVENT_STREAM];
+        }
         voRepresentation.essentialProperties = getEssentialProperties(realRepresentation);
         voRepresentation.supplementalProperties = getSupplementalProperties(realRepresentation);
         voRepresentation.segmentSequenceProperties = _getSegmentSequencePropertiesForElement(realRepresentation);
