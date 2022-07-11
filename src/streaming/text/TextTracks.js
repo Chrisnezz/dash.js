@@ -153,6 +153,10 @@ function TextTracks(config) {
                 defaultIndex = i;
             }
 
+            if (textTrackQueue[i].inBandMetadataTrackDispatchType) {
+                track.inBandMetadataTrackDispatchType = textTrackQueue[i].inBandMetadataTrackDispatchType;
+            }
+
             const textTrack = getTrackByIdx(i);
             if (textTrack) {
                 //each time a track is created, its mode should be showing by default

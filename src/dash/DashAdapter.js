@@ -60,6 +60,11 @@ function DashAdapter() {
     const context = this.context;
 
     const PROFILE_DVB = 'urn:dvb:dash:profile:dvb-dash:2014';
+    const MPD_EVENTS_SCHEMES = [
+        'urn:scte:scte35:2013:xml',
+        'https://dashif.org/identifiers/vast30',
+        'urn:dvb:iptv:cpm:2014'
+    ];
 
     function setup() {
         dashManifestModel = DashManifestModel(context).getInstance();
@@ -199,6 +204,9 @@ function DashAdapter() {
                     let events = eventStreams[i].Event_asArray;
                     if (events) {
                         media = convertEventStreamToMediaInfo(eventStreams[i]);
+                        if (!media) {
+                            continue;
+                        }
                         media.streamInfo = streamInfo;
                         const timescale = eventStreams[i].hasOwnProperty('timescale') ? eventStreams[i].timescale : 1;
                         for (j = 0; j < events.length; j++) {
@@ -1241,17 +1249,21 @@ function DashAdapter() {
     }
 
     function convertEventStreamToMediaInfo(eventStream) {
-        let mediaInfo = new MediaInfo();
-        mediaInfo.id = constants.CC1;
-        mediaInfo.lang = 'eng';
-        mediaInfo.type = constants.TEXT;
-        mediaInfo.isEmbedded = false;
-        mediaInfo.isTTML = false;
-        mediaInfo.roles = ['caption'];
-        mediaInfo.accessibility = [];
-        mediaInfo.audioChannelConfiguration = [];
-        mediaInfo.captionData = [];
-        mediaInfo.inBandMetadataTrackDispatchType = eventStream.schemeIdUri + ' ' + eventStream.value;
+        let mediaInfo = undefined;
+        if (!MPD_EVENTS_SCHEMES.includes(eventStream.schemeIdUri)) {
+            mediaInfo = new MediaInfo();
+            mediaInfo.id = '';
+            mediaInfo.lang = '';
+            mediaInfo.type = constants.TEXT;
+            mediaInfo.isEmbedded = false;
+            mediaInfo.isTTML = false;
+            // roles must be {value} objects: _getKind() in TextSourceBuffer reads roles[0].value.
+            mediaInfo.roles = [{ value: 'metadata' }];
+            mediaInfo.accessibility = [];
+            mediaInfo.audioChannelConfiguration = [];
+            mediaInfo.captionData = [];
+            mediaInfo.inBandMetadataTrackDispatchType = eventStream.schemeIdUri + ' ' + eventStream.value;
+        }
         return mediaInfo;
     }
 

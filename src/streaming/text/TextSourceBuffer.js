@@ -154,6 +154,7 @@ function TextSourceBuffer(config) {
         trackKindMap[DashConstants.FORCED_SUBTITLE] = 'subtitles'
 
         const textTrackInfo = new TextTrackInfo();
+        trackKindMap['metadata'] = 'metadata';
 
         for (let key in mediaInfo) {
             textTrackInfo[key] = mediaInfo[key];
@@ -590,7 +591,7 @@ function TextSourceBuffer(config) {
                 isDefault = true;
             }
         } else if (embeddedTracks.length === 0) {
-            isDefault = (mediaInfo.index === mediaInfos[0].index);
+            isDefault = (mediaInfo.index === mediaInfos[0].index) && (!mediaInfo.inBandMetadataTrackDispatchType);
         }
         return isDefault;
     }
