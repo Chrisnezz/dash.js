@@ -201,19 +201,19 @@ function DashAdapter() {
             let eventStreams = dashManifestModel.getEventStreamsForPeriod(period);
             if (eventStreams) {
                 for (i = 0; i < eventStreams.length; i++) {
+                    media = convertEventStreamToMediaInfo(eventStreams[i]);
+                    if (!media) {
+                        continue;
+                    }
+                    media.streamInfo = streamInfo;
                     let events = eventStreams[i].Event_asArray;
                     if (events) {
-                        media = convertEventStreamToMediaInfo(eventStreams[i]);
-                        if (!media) {
-                            continue;
-                        }
-                        media.streamInfo = streamInfo;
                         const timescale = eventStreams[i].hasOwnProperty('timescale') ? eventStreams[i].timescale : 1;
                         for (j = 0; j < events.length; j++) {
                             media.captionData.push(convertEventToCaptionData(events[j], timescale));
                         }
-                        mediaArr.push(media);
                     }
+                    mediaArr.push(media);
                 }
             }
         }
