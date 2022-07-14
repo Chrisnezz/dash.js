@@ -13,6 +13,23 @@ try {
    process.exit(1);
 }
 
+// fix for html5 and cehtml support
+try {
+   replace.sync({
+       files: 'dist/dash.all.min.js',
+       from: '"<![CDATA["+',
+       to: '"<"+"!["+"C"+"DATA["+'
+   });
+   replace.sync({
+       files: 'dist/dash.all.min.js',
+       from: '+"]]>"',
+       to: '+"]"+"]>"'
+   });
+} catch (e) {
+   console.error('Failed to replace CDATA: ', e);
+   process.exit(1);
+}
+
 // add licence
 try {
    const filepaths = [
