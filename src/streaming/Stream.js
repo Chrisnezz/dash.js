@@ -54,6 +54,10 @@ const MPD_EVENTS_SCHEMES = [
     'https://dashif.org/identifiers/vast30',
     'urn:dvb:iptv:cpm:2014'
 ];
+const MPD_INBAND_EVENTS_SCHEMES = [
+    'urn:mpeg:dash:event:2012',
+    'urn:dvb:iptv:cpm:2014'
+];
 
 function Stream(config) {
 
@@ -866,10 +870,10 @@ function Stream(config) {
         }
 
         let eventStreams = adapter.getEventStreamsFor(streamInfo);
-        if (eventStreams) {
+        if (eventStreams && eventStreams.length > 0) {
             let mediaInfos = [];
             for (let i = 0, ln = eventStreams.length; i < ln; i++) {
-                let media = convertEventStreamToMediaInfo(eventStreams[i]);
+                let media = convertEventStreamToMediaInfo(eventStreams[i], MPD_EVENTS_SCHEMES);
                 if (!media) {
                     continue;
                 }
@@ -881,19 +885,17 @@ function Stream(config) {
                         media.captionData.push(convertEventToCaptionData(events[j], timescale));
                     }
                 }
-                if (_isMediaSupported(media)) {
-                    mediaInfos.push(media);
-                    mediaController.addTrack(media);
-                }
+                mediaInfos.push(media);
+                mediaController.addTrack(media);
             }
             textController.addMediaInfosToBuffer(streamInfo, Constants.TEXT, mediaInfos);
             textController.createTracks(streamInfo);
         }
     }
 
-    function convertEventStreamToMediaInfo(eventStream) {
+    function convertEventStreamToMediaInfo(eventStream, eventSchemes) {
         let mediaInfo = null;
-        if (!MPD_EVENTS_SCHEMES.includes(eventStream.schemeIdUri)) {
+        if (!eventSchemes.includes(eventStream.schemeIdUri)) {
             mediaInfo = new MediaInfo();
             mediaInfo.id = '';
             mediaInfo.lang = '';
@@ -911,9 +913,15 @@ function Stream(config) {
     }
 
     function convertEventToCaptionData(event, timescale) {
-        let startTime = (event.hasOwnProperty('presentationTime')) ? event.presentationTime / timescale : 0;
+        let startTime = 0;
         let endTime;
-        if (event.hasOwnProperty('duration')) {
+        if (event.hasOwnProperty('calculatedPresentationTime')) {
+            startTime = event.calculatedPresentationTime / timescale;
+        }
+        else if (event.hasOwnProperty('presentationTime')) {
+            startTime = event.presentationTime / timescale;
+        } 
+        if (event.hasOwnProperty('duration') && event.duration < 0xffff) {
             if (event.duration / timescale < 0.25) {
                 endTime = (startTime + 250) / timescale;
             }
@@ -928,7 +936,8 @@ function Stream(config) {
             start: startTime,
             end: endTime,
             data: event.toString(),
-            id: event.id
+            id: event.id,
+            messageData: event.messageData
         };
     }
 
@@ -988,6 +997,34 @@ function Stream(config) {
     function _onInbandEvents(e) {
         if (eventController) {
             eventController.addInbandEvents(e.events, streamInfo.id);
+        }
+        if (e.events && e.events.length > 0) {
+            let processedEventStreams = [];
+            let mediaInfos = [];
+            let i, ln, media;
+            for (i = 0, ln = e.events.length; i < ln; i++) {
+                let eventStream = e.events[i].eventStream;
+                let index = processedEventStreams.indexOf(eventStream);
+                if (index >= 0) {
+                    media = mediaInfos[index];
+                }
+                else {
+                    media = convertEventStreamToMediaInfo(eventStream, MPD_INBAND_EVENTS_SCHEMES);
+                    if (!media) {
+                        continue;
+                    }
+                    media.streamInfo = streamInfo;
+                    processedEventStreams.push(eventStream);
+                    mediaInfos.push(media);
+                }
+                const timescale = eventStream.hasOwnProperty('timescale') ? eventStream.timescale : 1;
+                media.captionData.push(convertEventToCaptionData(e.events[i], timescale));
+            }
+            for (i = 0, ln = mediaInfos.length; i < ln; ++i) {
+                mediaController.addTrack(mediaInfos[i]);
+            }
+            textController.addMediaInfosToBuffer(streamInfo, Constants.TEXT, mediaInfos);
+            textController.createTracks(streamInfo);
         }
     }
 
