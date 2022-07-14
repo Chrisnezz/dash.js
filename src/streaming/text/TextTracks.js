@@ -766,11 +766,14 @@ function TextTracks(config) {
     }
 
     function _getCueInformation(currentItem, timeOffset) {
+        let cue;
         if (_isHTMLCue(currentItem)) {
-            return _getCueInformationForHtml(currentItem, timeOffset);
+            cue = _getCueInformationForHtml(currentItem, timeOffset);
+        } else {
+            cue = _getCueInformationForNonHtml(currentItem, timeOffset);
         }
-
-        return _getCueInformationForNonHtml(currentItem, timeOffset);
+        cue.id = currentItem.id;
+        return cue;
     }
 
     function _getCueInformationForHtml(currentItem, timeOffset) {

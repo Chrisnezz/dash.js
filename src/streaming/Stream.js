@@ -40,6 +40,7 @@ import Events from '../core/events/Events.js';
 import ExternalMediaSource from './ExternalMediaSource.js';
 import FactoryMaker from '../core/FactoryMaker.js';
 import FragmentController from './controllers/FragmentController.js';
+import MediaInfo from '../dash/vo/MediaInfo.js';
 import MediaInfoSelectionInput from './vo/MediaInfoSelectionInput.js';
 import MediaPlayerEvents from './MediaPlayerEvents.js';
 import StreamProcessor from './StreamProcessor.js';
@@ -48,7 +49,11 @@ import URLUtils from './utils/URLUtils.js';
 
 
 const MEDIA_TYPES = [Constants.VIDEO, Constants.AUDIO, Constants.TEXT, Constants.MUXED, Constants.IMAGE];
-
+const MPD_EVENTS_SCHEMES = [
+    'urn:scte:scte35:2013:xml',
+    'https://dashif.org/identifiers/vast30',
+    'urn:dvb:iptv:cpm:2014'
+];
 
 function Stream(config) {
 
@@ -859,6 +864,72 @@ function Stream(config) {
                 eventController.addInlineEvents(events, streamInfo.id);
             }
         }
+
+        let eventStreams = adapter.getEventStreamsFor(streamInfo);
+        if (eventStreams) {
+            let mediaInfos = [];
+            for (let i = 0, ln = eventStreams.length; i < ln; i++) {
+                let media = convertEventStreamToMediaInfo(eventStreams[i]);
+                if (!media) {
+                    continue;
+                }
+                media.streamInfo = streamInfo;
+                let events = eventStreams[i].Event_asArray;
+                if (events) {
+                    const timescale = eventStreams[i].hasOwnProperty('timescale') ? eventStreams[i].timescale : 1;
+                    for (let j = 0; j < events.length; j++) {
+                        media.captionData.push(convertEventToCaptionData(events[j], timescale));
+                    }
+                }
+                if (_isMediaSupported(media)) {
+                    mediaInfos.push(media);
+                    mediaController.addTrack(media);
+                }
+            }
+            textController.addMediaInfosToBuffer(streamInfo, Constants.TEXT, mediaInfos);
+            textController.createTracks(streamInfo);
+        }
+    }
+
+    function convertEventStreamToMediaInfo(eventStream) {
+        let mediaInfo = null;
+        if (!MPD_EVENTS_SCHEMES.includes(eventStream.schemeIdUri)) {
+            mediaInfo = new MediaInfo();
+            mediaInfo.id = '';
+            mediaInfo.lang = '';
+            mediaInfo.type = Constants.TEXT;
+            mediaInfo.isEmbedded = false;
+            mediaInfo.isTTML = false;
+            // roles must be {value} objects: _getKind() in TextSourceBuffer reads roles[0].value.
+            mediaInfo.roles = [{ value: 'metadata' }];
+            mediaInfo.accessibility = [];
+            mediaInfo.audioChannelConfiguration = [];
+            mediaInfo.captionData = [];
+            mediaInfo.inBandMetadataTrackDispatchType = eventStream.schemeIdUri + ' ' + eventStream.value;
+        }
+        return mediaInfo;
+    }
+
+    function convertEventToCaptionData(event, timescale) {
+        let startTime = (event.hasOwnProperty('presentationTime')) ? event.presentationTime / timescale : 0;
+        let endTime;
+        if (event.hasOwnProperty('duration')) {
+            if (event.duration / timescale < 0.25) {
+                endTime = (startTime + 250) / timescale;
+            }
+            else {
+                endTime = (startTime * timescale + event.duration) / timescale;
+            }
+        }
+        else {
+            endTime = Number.MAX_VALUE;
+        }
+        return {
+            start: startTime,
+            end: endTime,
+            data: event.toString(),
+            id: event.id
+        };
     }
 
     function _getMediaInfo(type) {
