@@ -1427,6 +1427,8 @@ function StreamController() {
             //is SegmentTimeline to avoid using time source
             const manifest = e.manifest;
             adapter.updatePeriods(manifest);
+            
+            _setMediaDuration(adapter.getDuration(manifest));
 
             // It is important to filter before initializing the baseUrlController. Otherwise we might end up with wrong references in case we remove AdaptationSets.
             capabilitiesFilter.filterUnsupportedFeatures(manifest)
