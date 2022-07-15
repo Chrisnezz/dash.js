@@ -608,8 +608,13 @@ function DashManifestModel() {
 
     function getManifestUpdatePeriod(manifest, latencyOfLastUpdate = 0) {
         let delay = NaN;
-        if (manifest && manifest.hasOwnProperty(DashConstants.MINIMUM_UPDATE_PERIOD)) {
-            delay = manifest.minimumUpdatePeriod;
+        if (manifest) {
+            if (manifest.hasOwnProperty(DashConstants.MINIMUM_UPDATE_PERIOD)) {
+                delay = manifest.minimumUpdatePeriod;
+            }
+            else if (manifest.type === DashConstants.DYNAMIC && manifest.hasOwnProperty(DashConstants.MEDIA_PRESENTATION_DURATION)) {
+                delay = manifest[DashConstants.MEDIA_PRESENTATION_DURATION];
+            }
         }
         return isNaN(delay) ? delay : Math.max(delay - latencyOfLastUpdate, 1);
     }
