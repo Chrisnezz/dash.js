@@ -1199,8 +1199,17 @@ function StreamController() {
      * @private
      */
     function _setMediaDuration(duration) {
-        const manifestDuration = duration ? duration : getActiveStreamInfo().manifestInfo.duration;
-        mediaSourceController.setDuration(manifestDuration);
+        const activeStreamInfo = getActiveStreamInfo();
+        // set media duration to infinity if @timeshiftBufferDepth is set in the mpd,
+        // in order to properly set the seekable ranges on the media source
+        if (activeStreamInfo && activeStreamInfo.manifestInfo.isDynamic && !isNaN(activeStreamInfo.manifestInfo.dvrWindowSize) && activeStreamInfo.manifestInfo.dvrWindowSize !== Number.POSITIVE_INFINITY) {
+            mediaSourceController.setDuration(Number.POSITIVE_INFINITY);
+        }
+        else {
+            const manifestDuration = duration ? duration : activeStreamInfo.manifestInfo.duration;
+            mediaSourceController.setDuration(manifestDuration);
+        }
+
     }
 
     /**
