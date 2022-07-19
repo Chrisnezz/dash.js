@@ -48,9 +48,19 @@ import ConformanceViolationConstants from '../constants/ConformanceViolationCons
 import ExtUrlQueryInfoController from './ExtUrlQueryInfoController.js';
 import ProtectionEvents from '../protection/ProtectionEvents.js';
 import ProtectionErrors from '../protection/errors/ProtectionErrors.js';
+import MediaInfo from '../../dash/vo/MediaInfo.js';
 
 const PLAYBACK_ENDED_TIMER_INTERVAL = 200;
 const DVR_WAITING_OFFSET = 2;
+const MPD_EVENTS_SCHEMES = [
+    'urn:scte:scte35:2013:xml',
+    'https://dashif.org/identifiers/vast30',
+    'urn:dvb:iptv:cpm:2014'
+];
+const MPD_INBAND_EVENTS_SCHEMES = [
+    'urn:mpeg:dash:event:2012',
+    'urn:dvb:iptv:cpm:2014'
+];
 
 function StreamController() {
 
@@ -150,6 +160,7 @@ function StreamController() {
         eventBus.on(Events.SETTING_UPDATED_LIVE_DELAY_FRAGMENT_COUNT, _onLiveDelaySettingUpdated, instance);
 
         eventBus.on(ProtectionEvents.INTERNAL_KEY_STATUSES_CHANGED, _onInternalKeyStatusesChanged, instance);
+        eventBus.on(Events.INBAND_EVENTS, _onInbandEvents, instance);
     }
 
     function unRegisterEvents() {
@@ -178,6 +189,7 @@ function StreamController() {
         eventBus.off(Events.SETTING_UPDATED_LIVE_DELAY_FRAGMENT_COUNT, _onLiveDelaySettingUpdated, instance);
 
         eventBus.off(ProtectionEvents.INTERNAL_KEY_STATUSES_CHANGED, _onInternalKeyStatusesChanged, instance);
+        eventBus.off(Events.INBAND_EVENTS, _onInbandEvents, instance);
     }
 
     function _checkConfig() {
@@ -601,6 +613,7 @@ function StreamController() {
 
                 isStreamSwitchingInProgress = false;
                 eventBus.trigger(Events.PERIOD_SWITCH_COMPLETED, { toStreamInfo: getActiveStreamInfo() });
+                _createTextTracksForActiveStream();
             });
     }
 
@@ -1460,6 +1473,114 @@ function StreamController() {
             hasInitialisationError = true;
             reset();
         }
+    }
+
+    function _onInbandEvents(e) {
+        const streamInfo = getActiveStreamInfo();
+        if (streamInfo && e.events && e.events.length > 0) {
+            let processedEventStreams = [];
+            let mediaInfos = [];
+            let i, ln, media;
+            for (i = 0, ln = e.events.length; i < ln; i++) {
+                let eventStream = e.events[i].eventStream;
+                let index = processedEventStreams.indexOf(eventStream);
+                if (index >= 0) {
+                    media = mediaInfos[index];
+                }
+                else {
+                    media = _convertEventStreamToMediaInfo(eventStream, MPD_INBAND_EVENTS_SCHEMES);
+                    if (!media) {
+                        continue;
+                    }
+                    media.streamInfo = streamInfo;
+                    processedEventStreams.push(eventStream);
+                    mediaInfos.push(media);
+                }
+                const timescale = eventStream.hasOwnProperty('timescale') ? eventStream.timescale : 1;
+                media.captionData.push(_convertEventToCaptionData(e.events[i], timescale));
+            }
+            for (i = 0, ln = mediaInfos.length; i < ln; ++i) {
+                mediaController.addTrack(mediaInfos[i]);
+            }
+            textController.addMediaInfosToBuffer(streamInfo, Constants.TEXT, mediaInfos);
+            textController.createTracks(streamInfo);
+        }
+    }
+
+    function _createTextTracksForActiveStream() {
+        const streamInfo = getActiveStreamInfo();
+        if (streamInfo) {
+            let eventStreams = adapter.getEventStreamsFor(streamInfo);
+            if (eventStreams && eventStreams.length > 0) {
+                let mediaInfos = [];
+                for (let i = 0, ln = eventStreams.length; i < ln; i++) {
+                    let media = _convertEventStreamToMediaInfo(eventStreams[i], MPD_EVENTS_SCHEMES);
+                    if (!media) {
+                        continue;
+                    }
+                    media.streamInfo = streamInfo;
+                    let events = eventStreams[i].Event_asArray;
+                    if (events) {
+                        const timescale = eventStreams[i].hasOwnProperty('timescale') ? eventStreams[i].timescale : 1;
+                        for (let j = 0; j < events.length; j++) {
+                            media.captionData.push(_convertEventToCaptionData(events[j], timescale));
+                        }
+                    }
+                    mediaInfos.push(media);
+                    mediaController.addTrack(media);
+                }
+                textController.addMediaInfosToBuffer(streamInfo, Constants.TEXT, mediaInfos);
+                textController.createTracks(streamInfo);
+            }
+        }
+    }
+
+    function _convertEventStreamToMediaInfo(eventStream, eventSchemes) {
+        let mediaInfo = null;
+        if (!eventSchemes.includes(eventStream.schemeIdUri)) {
+            mediaInfo = new MediaInfo();
+            mediaInfo.id = '';
+            mediaInfo.lang = '';
+            mediaInfo.type = Constants.TEXT;
+            mediaInfo.isEmbedded = false;
+            mediaInfo.isTTML = false;
+            // roles must be {value} objects: _getKind() in TextSourceBuffer reads roles[0].value.
+            mediaInfo.roles = [{ value: 'metadata' }];
+            mediaInfo.accessibility = [];
+            mediaInfo.audioChannelConfiguration = [];
+            mediaInfo.captionData = [];
+            mediaInfo.inBandMetadataTrackDispatchType = eventStream.schemeIdUri + ' ' + eventStream.value;
+        }
+        return mediaInfo;
+    }
+
+    function _convertEventToCaptionData(event, timescale) {
+        let startTime = 0;
+        let endTime;
+        if (event.hasOwnProperty('calculatedPresentationTime')) {
+            startTime = event.calculatedPresentationTime / timescale;
+        }
+        else if (event.hasOwnProperty('presentationTime')) {
+            startTime = event.presentationTime / timescale;
+        } 
+        if (event.hasOwnProperty('duration') && event.duration < 0xffff) {
+            if (event.duration / timescale < 0.25) {
+                endTime = (startTime + 250) / timescale;
+            }
+            else {
+                endTime = (startTime * timescale + event.duration) / timescale;
+            }
+        }
+        else {
+            endTime = Number.MAX_VALUE;
+        }
+        return {
+            start: startTime,
+            end: endTime,
+            data: event.toString(),
+            id: event.id,
+            messageData: event.messageData
+        };
     }
 
     /**

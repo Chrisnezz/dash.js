@@ -40,24 +40,13 @@ import Events from '../core/events/Events.js';
 import ExternalMediaSource from './ExternalMediaSource.js';
 import FactoryMaker from '../core/FactoryMaker.js';
 import FragmentController from './controllers/FragmentController.js';
-import MediaInfo from '../dash/vo/MediaInfo.js';
 import MediaInfoSelectionInput from './vo/MediaInfoSelectionInput.js';
 import MediaPlayerEvents from './MediaPlayerEvents.js';
 import StreamProcessor from './StreamProcessor.js';
 import ThumbnailController from './thumbnail/ThumbnailController.js';
 import URLUtils from './utils/URLUtils.js';
 
-
 const MEDIA_TYPES = [Constants.VIDEO, Constants.AUDIO, Constants.TEXT, Constants.MUXED, Constants.IMAGE];
-const MPD_EVENTS_SCHEMES = [
-    'urn:scte:scte35:2013:xml',
-    'https://dashif.org/identifiers/vast30',
-    'urn:dvb:iptv:cpm:2014'
-];
-const MPD_INBAND_EVENTS_SCHEMES = [
-    'urn:mpeg:dash:event:2012',
-    'urn:dvb:iptv:cpm:2014'
-];
 
 function Stream(config) {
 
@@ -868,77 +857,6 @@ function Stream(config) {
                 eventController.addInlineEvents(events, streamInfo.id);
             }
         }
-
-        let eventStreams = adapter.getEventStreamsFor(streamInfo);
-        if (eventStreams && eventStreams.length > 0) {
-            let mediaInfos = [];
-            for (let i = 0, ln = eventStreams.length; i < ln; i++) {
-                let media = convertEventStreamToMediaInfo(eventStreams[i], MPD_EVENTS_SCHEMES);
-                if (!media) {
-                    continue;
-                }
-                media.streamInfo = streamInfo;
-                let events = eventStreams[i].Event_asArray;
-                if (events) {
-                    const timescale = eventStreams[i].hasOwnProperty('timescale') ? eventStreams[i].timescale : 1;
-                    for (let j = 0; j < events.length; j++) {
-                        media.captionData.push(convertEventToCaptionData(events[j], timescale));
-                    }
-                }
-                mediaInfos.push(media);
-                mediaController.addTrack(media);
-            }
-            textController.addMediaInfosToBuffer(streamInfo, Constants.TEXT, mediaInfos);
-            textController.createTracks(streamInfo);
-        }
-    }
-
-    function convertEventStreamToMediaInfo(eventStream, eventSchemes) {
-        let mediaInfo = null;
-        if (!eventSchemes.includes(eventStream.schemeIdUri)) {
-            mediaInfo = new MediaInfo();
-            mediaInfo.id = '';
-            mediaInfo.lang = '';
-            mediaInfo.type = Constants.TEXT;
-            mediaInfo.isEmbedded = false;
-            mediaInfo.isTTML = false;
-            // roles must be {value} objects: _getKind() in TextSourceBuffer reads roles[0].value.
-            mediaInfo.roles = [{ value: 'metadata' }];
-            mediaInfo.accessibility = [];
-            mediaInfo.audioChannelConfiguration = [];
-            mediaInfo.captionData = [];
-            mediaInfo.inBandMetadataTrackDispatchType = eventStream.schemeIdUri + ' ' + eventStream.value;
-        }
-        return mediaInfo;
-    }
-
-    function convertEventToCaptionData(event, timescale) {
-        let startTime = 0;
-        let endTime;
-        if (event.hasOwnProperty('calculatedPresentationTime')) {
-            startTime = event.calculatedPresentationTime / timescale;
-        }
-        else if (event.hasOwnProperty('presentationTime')) {
-            startTime = event.presentationTime / timescale;
-        }
-        if (event.hasOwnProperty('duration') && event.duration < 0xffff) {
-            if (event.duration / timescale < 0.25) {
-                endTime = (startTime + 250) / timescale;
-            }
-            else {
-                endTime = (startTime * timescale + event.duration) / timescale;
-            }
-        }
-        else {
-            endTime = Number.MAX_VALUE;
-        }
-        return {
-            start: startTime,
-            end: endTime,
-            data: event.toString(),
-            id: event.id,
-            messageData: event.messageData
-        };
     }
 
     function _getMediaInfo(type) {
@@ -997,34 +915,6 @@ function Stream(config) {
     function _onInbandEvents(e) {
         if (eventController) {
             eventController.addInbandEvents(e.events, streamInfo.id);
-        }
-        if (e.events && e.events.length > 0) {
-            let processedEventStreams = [];
-            let mediaInfos = [];
-            let i, ln, media;
-            for (i = 0, ln = e.events.length; i < ln; i++) {
-                let eventStream = e.events[i].eventStream;
-                let index = processedEventStreams.indexOf(eventStream);
-                if (index >= 0) {
-                    media = mediaInfos[index];
-                }
-                else {
-                    media = convertEventStreamToMediaInfo(eventStream, MPD_INBAND_EVENTS_SCHEMES);
-                    if (!media) {
-                        continue;
-                    }
-                    media.streamInfo = streamInfo;
-                    processedEventStreams.push(eventStream);
-                    mediaInfos.push(media);
-                }
-                const timescale = eventStream.hasOwnProperty('timescale') ? eventStream.timescale : 1;
-                media.captionData.push(convertEventToCaptionData(e.events[i], timescale));
-            }
-            for (i = 0, ln = mediaInfos.length; i < ln; ++i) {
-                mediaController.addTrack(mediaInfos[i]);
-            }
-            textController.addMediaInfosToBuffer(streamInfo, Constants.TEXT, mediaInfos);
-            textController.createTracks(streamInfo);
         }
     }
 
