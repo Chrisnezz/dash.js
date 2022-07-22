@@ -1215,7 +1215,7 @@ function StreamController() {
         const activeStreamInfo = getActiveStreamInfo();
         // set media duration to infinity if @timeshiftBufferDepth is set in the mpd,
         // in order to properly set the seekable ranges on the media source
-        if (activeStreamInfo && activeStreamInfo.manifestInfo.isDynamic && !isNaN(activeStreamInfo.manifestInfo.dvrWindowSize) && activeStreamInfo.manifestInfo.dvrWindowSize !== Number.POSITIVE_INFINITY) {
+        if (activeStreamInfo && activeStreamInfo.manifestInfo && activeStreamInfo.manifestInfo.isDynamic && !isNaN(activeStreamInfo.manifestInfo.dvrWindowSize) && activeStreamInfo.manifestInfo.dvrWindowSize !== Number.POSITIVE_INFINITY) {
             mediaSourceController.setDuration(Number.POSITIVE_INFINITY);
         }
         else {
