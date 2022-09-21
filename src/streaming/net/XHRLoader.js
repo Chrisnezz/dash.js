@@ -40,6 +40,8 @@ function XHRLoader() {
 
     let instance;
     let xhr;
+    const useDashScheme = window.orbDebug === undefined ||
+        window.orbDebug.isFeatureEnabled('dash-scheme');
 
     /**
      * Load request
@@ -49,7 +51,18 @@ function XHRLoader() {
     function load(commonMediaRequest, commonMediaResponse) {
         xhr = null;
         xhr = new XMLHttpRequest();
-        xhr.open(commonMediaRequest.method, commonMediaRequest.url, true);
+        let url = commonMediaRequest.url;
+
+        if (useDashScheme) {
+            // Use 'dash' scheme to indicate a sandbox HTTP client should be used
+            if (commonMediaRequest.method.toLowerCase() === 'get') {
+                if (url.substring(0, 4).toLowerCase() === 'http') {
+                    url = 'dash' + url.substring(4);
+                }
+            }
+        }
+
+        xhr.open(commonMediaRequest.method, url, true);
 
         if (commonMediaRequest.responseType) {
             xhr.responseType = commonMediaRequest.responseType;
