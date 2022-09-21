@@ -339,8 +339,8 @@ function TextTracks(config) {
     function checkVideoSize(track, forceDrawing) {
         const clientWidth = videoModel.getClientWidth();
         const clientHeight = videoModel.getClientHeight();
-        const videoWidth = videoModel.getVideoWidth();
-        const videoHeight = videoModel.getVideoHeight();
+        const videoWidth = videoModel.getVideoWidth() || clientWidth;
+        const videoHeight = videoModel.getVideoHeight() || clientHeight;
         const videoOffsetTop = videoModel.getVideoRelativeOffsetTop();
         const videoOffsetLeft = videoModel.getVideoRelativeOffsetLeft();
 
