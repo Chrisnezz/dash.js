@@ -54,10 +54,13 @@ function XHRLoader() {
         let url = commonMediaRequest.url;
 
         if (useDashScheme) {
-            // Use 'dash' scheme to indicate a sandbox HTTP client should be used
-            if (commonMediaRequest.method.toLowerCase() === 'get') {
-                if (url.substring(0, 4).toLowerCase() === 'http') {
-                    url = 'dash' + url.substring(4);
+            // 'dash' scheme indicates a sandbox HTTP client should be used
+            const parsed = new URL(url);
+            if (parsed.origin !== window.location.origin) {
+                if (commonMediaRequest.method.toLowerCase() === 'get') {
+                    if (url.substring(0, 4).toLowerCase() === 'http') {
+                        url = 'dash' + url.substring(4);
+                    }
                 }
             }
         }
