@@ -68,7 +68,6 @@ function BlackListController(config) {
         } else {
             blacklist.push({ entry: entry });
         }
-
         eventBus.trigger(updateEventName, { entry: entry });
     }
 

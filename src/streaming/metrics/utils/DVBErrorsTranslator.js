@@ -43,6 +43,8 @@ function DVBErrorsTranslator(config) {
     const metricsConstants = config.metricsConstants;
     //MediaPlayerEvents have been added to Events in MediaPlayer class
     const Events = config.events;
+    const useDashScheme = window.orbDebug === undefined ||
+        window.orbDebug.isFeatureEnabled('dash-scheme');
 
     function report(vo) {
         let o = new DVBErrors();
@@ -76,11 +78,15 @@ function DVBErrorsTranslator(config) {
         mpd = e.manifest;
     }
 
-    function onServiceLocationChanged(e) {
-        report({
-            errorcode: DVBErrors.BASE_URL_CHANGED,
-            servicelocation: e.entry
-        });
+    function onServiceLocationChanged() {
+        // ORB: Triggered in BlackListController.js when blacklist is changed, this is not
+        // the same as base URL changed, as sometimes there's only 1 base URL. Disabled
+        // for now as messes up HbbTV test results
+        
+        //report({
+        //    errorcode: DVBErrors.BASE_URL_CHANGED,
+        //    servicelocation: e.entry
+        //});
     }
 
     function onBecameReporter() {
@@ -97,7 +103,7 @@ function DVBErrorsTranslator(config) {
             (vo.responsecode < 100) || // unknown status codes
             (vo.responsecode >= 600)) { // unknown status codes
             let repObj = {
-                errorcode:          DVBErrors.CONNECTION_ERROR,
+                errorcode:          vo.responsecode,
                 url:                vo.url,
                 terror:             vo.tresponse,
                 servicelocation:    vo._serviceLocation,
@@ -107,8 +113,23 @@ function DVBErrorsTranslator(config) {
             if (vo.responsecode === 0) {
                 repObj.errorcode = DVBErrors.DNS_RESOLUTION_FAILED;
             }
+            if (vo.responsecode == null) {
+                repObj.errorcode = DVBErrors.CONNECTION_REFUSED;
+            }
 
-            report(repObj);
+            if (useDashScheme) {
+                // ORB: Use special dash://resolve.host/{hostname}, if available
+                const xhr = new XMLHttpRequest();
+                xhr.onload = function () {
+                    repObj.ipaddress = xhr.responseText.trim();
+                    report(repObj);
+                };
+                const parsed = new URL(vo.url);
+                xhr.open('GET', 'dash://resolve.host/' + parsed.hostname);
+                xhr.send();
+            } else {
+                report(repObj);
+            }
         }
     }
 
@@ -127,9 +148,10 @@ function DVBErrorsTranslator(config) {
         let errorcode;
 
         switch (reason) {
-            case MediaError.MEDIA_ERR_NETWORK:
-                errorcode = DVBErrors.CONNECTION_ERROR;
-                break;
+            // ORB: Disabled as not expected by HbbTV tests
+            //case MediaError.MEDIA_ERR_NETWORK:
+            //    errorcode = DVBErrors.CONNECTION_ERROR;
+            //    break;
             case MediaError.MEDIA_ERR_DECODE:
                 errorcode = DVBErrors.CORRUPT_MEDIA_OTHER;
                 break;
