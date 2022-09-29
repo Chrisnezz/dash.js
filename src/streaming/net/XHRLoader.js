@@ -55,7 +55,7 @@ function XHRLoader() {
 
         if (useDashScheme) {
             // 'dash' scheme indicates a sandbox HTTP client should be used
-            const parsed = new URL(url);
+            const parsed = new URL(url, document.baseURI);
             if (parsed.origin !== window.location.origin) {
                 if (commonMediaRequest.method.toLowerCase() === 'get') {
                     if (url.substring(0, 4).toLowerCase() === 'http') {

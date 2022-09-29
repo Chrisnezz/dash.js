@@ -124,7 +124,7 @@ function DVBErrorsTranslator(config) {
                     repObj.ipaddress = xhr.responseText.trim();
                     report(repObj);
                 };
-                const parsed = new URL(vo.url);
+                const parsed = new URL(vo.url, document.baseURI);
                 xhr.open('GET', 'dash://resolve.host/' + parsed.hostname);
                 xhr.send();
             } else {
