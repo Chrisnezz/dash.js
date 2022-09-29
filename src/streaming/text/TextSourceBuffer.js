@@ -155,6 +155,7 @@ function TextSourceBuffer(config) {
 
         const textTrackInfo = new TextTrackInfo();
         trackKindMap['metadata'] = 'metadata';
+        trackKindMap['main'] = 'subtitles';
 
         for (let key in mediaInfo) {
             textTrackInfo[key] = mediaInfo[key];
