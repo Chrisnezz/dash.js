@@ -55,6 +55,7 @@ const DVR_WAITING_OFFSET = 2;
 
 const EVENT_SCHEMES = {
     eventStream: [
+        'urn:mpeg:dash:event:2012',
         'urn:scte:scte35:2013:xml',
         'https://dashif.org/identifiers/vast30',
         'urn:dvb:iptv:cpm:2014'
