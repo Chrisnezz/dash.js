@@ -52,15 +52,19 @@ import MediaInfo from '../../dash/vo/MediaInfo.js';
 
 const PLAYBACK_ENDED_TIMER_INTERVAL = 200;
 const DVR_WAITING_OFFSET = 2;
-const MPD_EVENTS_SCHEMES = [
-    'urn:scte:scte35:2013:xml',
-    'https://dashif.org/identifiers/vast30',
-    'urn:dvb:iptv:cpm:2014'
-];
-const MPD_INBAND_EVENTS_SCHEMES = [
-    'urn:mpeg:dash:event:2012',
-    'urn:dvb:iptv:cpm:2014'
-];
+
+const EVENT_SCHEMES = {
+    eventStream: [
+        'urn:scte:scte35:2013:xml',
+        'https://dashif.org/identifiers/vast30',
+        'urn:dvb:iptv:cpm:2014'
+    ]
+    ,
+    inbandEventStream: [
+        'urn:mpeg:dash:event:2012',
+        'urn:dvb:iptv:cpm:2014'
+    ]
+};
 
 function StreamController() {
 
@@ -1451,6 +1455,7 @@ function StreamController() {
             adapter.updatePeriods(manifest);
             
             _setMediaDuration(adapter.getDuration(manifest));
+            _createTextTracksForActiveStream();
 
             // It is important to filter before initializing the baseUrlController. Otherwise we might end up with wrong references in case we remove AdaptationSets.
             capabilitiesFilter.filterUnsupportedFeatures(manifest)
@@ -1488,7 +1493,7 @@ function StreamController() {
                     media = mediaInfos[index];
                 }
                 else {
-                    media = _convertEventStreamToMediaInfo(eventStream, MPD_INBAND_EVENTS_SCHEMES);
+                    media = _convertEventStreamToMediaInfo(eventStream, 'inbandEventStream' + (eventStream.representation? '_' + eventStream.representation.id : ''));
                     if (!media) {
                         continue;
                     }
@@ -1514,7 +1519,7 @@ function StreamController() {
             if (eventStreams && eventStreams.length > 0) {
                 let mediaInfos = [];
                 for (let i = 0, ln = eventStreams.length; i < ln; i++) {
-                    let media = _convertEventStreamToMediaInfo(eventStreams[i], MPD_EVENTS_SCHEMES);
+                    let media = _convertEventStreamToMediaInfo(eventStreams[i], 'eventStream');
                     if (!media) {
                         continue;
                     }
@@ -1535,11 +1540,12 @@ function StreamController() {
         }
     }
 
-    function _convertEventStreamToMediaInfo(eventStream, eventSchemes) {
+    function _convertEventStreamToMediaInfo(eventStream, id) {
         let mediaInfo = null;
-        if (!eventSchemes.includes(eventStream.schemeIdUri)) {
+        const eventSchemes = EVENT_SCHEMES[id.split('_')[0]];
+        if (eventSchemes && !eventSchemes.includes(eventStream.schemeIdUri)) {
             mediaInfo = new MediaInfo();
-            mediaInfo.id = '';
+            mediaInfo.id = id;
             mediaInfo.lang = '';
             mediaInfo.type = Constants.TEXT;
             mediaInfo.isEmbedded = false;

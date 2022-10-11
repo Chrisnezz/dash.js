@@ -153,10 +153,6 @@ function TextTracks(config) {
                 defaultIndex = i;
             }
 
-            if (textTrackQueue[i].inBandMetadataTrackDispatchType) {
-                track.inBandMetadataTrackDispatchType = textTrackQueue[i].inBandMetadataTrackDispatchType;
-            }
-
             const textTrack = getTrackByIdx(i);
             if (textTrack) {
                 //each time a track is created, its mode should be showing by default
@@ -218,7 +214,7 @@ function TextTracks(config) {
         const lang = element.lang;
         const isTTML = element.isTTML;
         const isEmbedded = element.isEmbedded;
-        const track = videoModel.addTextTrack(kind, label, lang, isTTML, isEmbedded);
+        const track = videoModel.addTextTrack(kind, label, lang, isTTML, isEmbedded, element.inBandMetadataTrackDispatchType);
 
         return track;
     }
@@ -897,7 +893,7 @@ function TextTracks(config) {
 
     function getTrackByIdx(idx) {
         return idx >= 0 && textTrackInfos[idx] ?
-            videoModel.getTextTrack(textTrackInfos[idx].kind, textTrackInfos[idx].id, textTrackInfos[idx].lang, textTrackInfos[idx].isTTML, textTrackInfos[idx].isEmbedded) : null;
+            videoModel.getTextTrack(textTrackInfos[idx].kind, textTrackInfos[idx].id, textTrackInfos[idx].lang, textTrackInfos[idx].isTTML, textTrackInfos[idx].isEmbedded, textTrackInfos[idx].inBandMetadataTrackDispatchType) : null;
     }
 
     function getCurrentTrackIdx() {

@@ -500,13 +500,14 @@ function VideoModel() {
         return element ? element.textTracks : [];
     }
 
-    function getTextTrack(kind, label, lang, isTTML, isEmbedded) {
+    function getTextTrack(kind, label, lang, isTTML, isEmbedded, inBandMetadataTrackDispatchType) {
         if (element) {
             for (let i = 0; i < element.textTracks.length; i++) {
                 //label parameter could be a number (due to adaptationSet), but label, the attribute of textTrack, is a string => to modify...
                 //label could also be undefined (due to adaptationSet)
                 if (element.textTracks[i].kind === kind && (label ? element.textTracks[i].label == label : true) &&
-                    element.textTracks[i].language === lang && element.textTracks[i].isTTML === isTTML && element.textTracks[i].isEmbedded === isEmbedded) {
+                    element.textTracks[i].language === lang && element.textTracks[i].isTTML === isTTML && element.textTracks[i].isEmbedded === isEmbedded &&
+                    element.textTracks[i].inBandMetadataTrackDispatchType === inBandMetadataTrackDispatchType) {
                     return element.textTracks[i];
                 }
             }
@@ -515,17 +516,18 @@ function VideoModel() {
         return null;
     }
 
-    function addTextTrack(kind, label, lang, isTTML, isEmbedded) {
+    function addTextTrack(kind, label, lang, isTTML, isEmbedded, inBandMetadataTrackDispatchType) {
         if (!element) {
             return null;
         }
         // check if track of same type has not been already created for previous stream
         // then use it (no way to remove existing text track from video element)
-        let track = getTextTrack(kind, label, lang, isTTML, isEmbedded);
+        let track = getTextTrack(kind, label, lang, isTTML, isEmbedded, inBandMetadataTrackDispatchType);
         if (!track) {
             track = element.addTextTrack(kind, label, lang);
             track.isEmbedded = isEmbedded;
             track.isTTML = isTTML;
+            track.inBandMetadataTrackDispatchType = inBandMetadataTrackDispatchType;
         }
         return track;
     }
