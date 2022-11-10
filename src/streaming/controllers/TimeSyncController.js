@@ -169,13 +169,15 @@ function TimeSyncController() {
     /**
      * Does a synchronization in the background in case the last offset should be verified or a 404 occurs
      */
-    function _onAttemptBackgroundSync() {
+    function _onAttemptBackgroundSync(e) {
         if (!settings.get().streaming.utcSynchronization.enabled || isSynchronizing || isBackgroundSynchronizing || !lastTimingSource || !lastTimingSource.value || !lastTimingSource.schemeIdUri || isNaN(lastOffset) || isNaN(settings.get().streaming.utcSynchronization.backgroundAttempts)) {
             return;
         }
 
         if (timeOfLastBackgroundSync && ((Date.now() - timeOfLastBackgroundSync) / 1000) < DEFAULT_MINIMUM_TIME_BETWEEN_BACKGROUND_SYNC_ATTEMPTS) {
-            return;
+            if (e.attemptToSyncNow === undefined || e.attemptToSyncNow === false) {
+                return;
+            }
         }
 
         backgroundSyncTimeOffsets = [];

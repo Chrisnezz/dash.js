@@ -81,7 +81,7 @@ function StreamController() {
         playbackController, serviceDescriptionController, mediaPlayerModel, customParametersModel, isPaused,
         initialPlayback, initialSteeringRequest, playbackEndedTimerInterval, preloadingStreams, settings,
         firstLicenseIsFetched, waitForPlaybackStartTimeout, providedStartTime, errorInformation,
-        pendingDynamicToStaticUpdate;
+        pendingDynamicToStaticUpdate, error404Attempts;
 
     function setup() {
         logger = Debug(context).getInstance().getLogger(instance);
@@ -1731,8 +1731,20 @@ function StreamController() {
                 break;
         }
 
+        if (msg === 'MEDIA_ERR_NETWORK' && error404Attempts > 0) {
+            let baseUrls = adapter.getBaseURLsFromElement(manifestModel.getValue());
+            let manifestUTCTimingSources = adapter.getUTCTimingSources();
+
+            if (adapter.getIsDynamic() && (manifestUTCTimingSources && manifestUTCTimingSources.length > 0) && baseUrls.length === 1) {
+                _handleMediaErrorNetwork();
+                return;
+            }
+        }
 
         if (msg === 'MEDIA_ERR_DECODE' && settings.get().errors.recoverAttempts.mediaErrorDecode >= errorInformation.counts.mediaErrorDecode) {
+            // const att = settings.get().errors.recoverAttempts.mediaErrorDecode;
+            // const attCount = errorInformation.counts.mediaErrorDecode;
+            // logger.warn(`${attCount} (#attempt) ${att} (max configured)`);
             _handleMediaErrorDecode();
             return;
         }
@@ -1753,6 +1765,16 @@ function StreamController() {
         }
         errHandler.error(new DashJSError(e.error.code, msg));
         reset();
+    }
+
+    /**
+     * Handles media network Error
+     * @private
+     */
+    function _handleMediaErrorNetwork() {
+        error404Attempts--;
+        manifestUpdater.refreshManifest();
+        eventBus.trigger(Events.ATTEMPT_BACKGROUND_SYNC, { attemptToSyncNow: true });
     }
 
     /**
@@ -1910,6 +1932,7 @@ function StreamController() {
                 mediaErrorDecode: 0
             }
         }
+        error404Attempts = 2;
     }
 
     function reset() {
