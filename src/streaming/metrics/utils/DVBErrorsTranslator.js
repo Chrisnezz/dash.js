@@ -37,7 +37,9 @@ function DVBErrorsTranslator(config) {
 
     config = config || {};
     let instance,
-        mpd;
+        mpd,
+        ipaddress,
+        ipaddressCounter;
     const eventBus = config.eventBus;
     const dashMetrics = config.dashMetrics;
     const metricsConstants = config.metricsConstants;
@@ -45,6 +47,7 @@ function DVBErrorsTranslator(config) {
     const Events = config.events;
     const useDashScheme = window.orbDebug === undefined ||
         window.orbDebug.isFeatureEnabled('dash-scheme');
+    const MaxAttemptsForIpAddr = 2;
 
     function report(vo) {
         let o = new DVBErrors();
@@ -107,7 +110,7 @@ function DVBErrorsTranslator(config) {
                 url:                vo.url,
                 terror:             vo.tresponse,
                 servicelocation:    vo._serviceLocation,
-                ipaddress:          ''
+                ipaddress:          ipaddress
             };
             
             if (vo.responsecode === 0) {
@@ -117,18 +120,19 @@ function DVBErrorsTranslator(config) {
                 repObj.errorcode = DVBErrors.CONNECTION_REFUSED;
             }
 
-            if (useDashScheme) {
+            report(repObj);
+        } else if (vo.responsecode === 200) {
+            if (useDashScheme && ipaddress === '' && ipaddressCounter < MaxAttemptsForIpAddr) {
                 // ORB: Use special dash://resolve.host/{hostname}, if available
                 const xhr = new XMLHttpRequest();
                 xhr.onload = function () {
-                    repObj.ipaddress = xhr.responseText.trim();
-                    report(repObj);
+                    ipaddress = xhr.responseText.trim();
                 };
                 const parsed = new URL(vo.url, document.baseURI);
                 xhr.open('GET', 'dash://resolve.host/' + parsed.hostname);
                 xhr.send();
-            } else {
-                report(repObj);
+
+                ipaddressCounter++;
             }
         }
     }
@@ -179,6 +183,8 @@ function DVBErrorsTranslator(config) {
             onBecameReporter,
             instance
         );
+        ipaddress = '';
+        ipaddressCounter = 0;
     }
 
     function reset() {
@@ -196,6 +202,8 @@ function DVBErrorsTranslator(config) {
             onBecameReporter,
             instance
         );
+        ipaddress = '';
+        ipaddressCounter = 0;
     }
 
     instance = {
