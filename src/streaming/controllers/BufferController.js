@@ -57,7 +57,6 @@ function BufferController(config) {
     const playbackController = config.playbackController;
     const representationController = config.representationController;
     const settings = config.settings;
-    const streamInfo = config.streamInfo;
     const textController = config.textController;
     const type = config.type;
 
@@ -81,14 +80,20 @@ function BufferController(config) {
         initCache,
         pendingPruningRanges,
         replacingBuffer,
-        seekTarget;
+        seekTarget,
+        streamInfo;
 
+    streamInfo = config.streamInfo;
 
     function setup() {
         logger = Debug(context).getInstance().getLogger(instance);
         initCache = InitCache(context).getInstance();
 
         resetInitialSettings();
+    }
+
+    function updateStreamInfo(newStreamInfo) {
+        streamInfo = newStreamInfo;
     }
 
     /**
@@ -1288,6 +1293,8 @@ function BufferController(config) {
 
 
         resetInitialSettings(errored, keepBuffers);
+
+        streamInfo = null;
     }
 
     instance = {
@@ -1324,6 +1331,8 @@ function BufferController(config) {
         setSeekTarget,
         updateAppendWindow,
         updateBufferTimestampOffset,
+        segmentRequestingCompleted,
+        updateStreamInfo
     };
 
     setup();

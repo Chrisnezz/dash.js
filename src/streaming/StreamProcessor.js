@@ -1214,6 +1214,7 @@ function StreamProcessor(config) {
             dashHandler.initialize(isDynamic);
             representationController.setIsDynamic(isDynamic);
         }
+        bufferController.updateStreamInfo(streamInfo);
         if (!isBufferingCompleted()) {
             return bufferController.updateAppendWindow();
         }
