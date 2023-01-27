@@ -886,7 +886,8 @@ function DashManifestModel() {
         } else if (realRepresentation.hasOwnProperty(DashConstants.SEGMENT_LIST)) {
             segmentInfo = realRepresentation.SegmentList;
 
-            if (segmentInfo.hasOwnProperty(DashConstants.SEGMENT_TIMELINE)) {
+            if (segmentInfo.hasOwnProperty(DashConstants.SEGMENT_TIMELINE) &&
+                !segmentInfo.hasOwnProperty(DashConstants.DURATION)) {
                 segmentInfoType = DashConstants.SEGMENT_TIMELINE;
             } else {
                 segmentInfoType = DashConstants.SEGMENT_LIST;
@@ -894,7 +895,8 @@ function DashManifestModel() {
         } else if (realRepresentation.hasOwnProperty(DashConstants.SEGMENT_TEMPLATE)) {
             segmentInfo = realRepresentation.SegmentTemplate;
 
-            if (segmentInfo.hasOwnProperty(DashConstants.SEGMENT_TIMELINE)) {
+            if (segmentInfo.hasOwnProperty(DashConstants.SEGMENT_TIMELINE) &&
+                !segmentInfo.hasOwnProperty(DashConstants.DURATION)) {
                 segmentInfoType = DashConstants.SEGMENT_TIMELINE;
             } else {
                 segmentInfoType = DashConstants.SEGMENT_TEMPLATE;
