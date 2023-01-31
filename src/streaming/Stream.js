@@ -246,7 +246,8 @@ function Stream(config) {
             _commonMediaInitialization(mediaSource, previousBuffers, representationsFromPreviousPeriod)
                 .then(() => {
                     for (let i = 0; i < streamProcessors.length && streamProcessors[i]; i++) {
-                        streamProcessors[i].setExplicitBufferingTime(getStartTime());
+                        // WIP fix for DA540420 (can be reverted when the test is fixed by HBBTV)
+                        // streamProcessors[i].setExplicitBufferingTime(getStartTime());
                         streamProcessors[i].getScheduleController().startScheduleTimer();
                     }
                     resolve();
