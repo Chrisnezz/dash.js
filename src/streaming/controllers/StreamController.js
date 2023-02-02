@@ -1345,14 +1345,31 @@ function StreamController() {
      */
     function _getStartTimeFromUriParameters(isDynamic) {
         const fragData = uriFragmentModel.getURIFragmentData();
-        if (!fragData || !fragData.t) {
+
+        if (!fragData) {
             return NaN;
         }
-        const refStream = getStreams()[0];
-        const referenceTime = refStream.getStreamInfo().start;
-        fragData.t = fragData.t.split(',')[0];
 
-        return _getStartTimeFromString(isDynamic, fragData.t, referenceTime);
+        let startTime = NaN;
+
+        if (fragData.period) {
+            const period = adapter.getPeriodById(fragData.period);
+
+            if (period) {
+                startTime = period.start;
+            } else {
+                logger.warn(`could not find period with id '${fragData.period}'`);
+            }
+        }
+
+        if (fragData.t) {
+            const refStream = getStreams()[0];
+            const referenceTime = !isNaN(startTime) ? startTime : refStream.getStreamInfo().start;
+            fragData.t = fragData.t.split(',')[0];
+            startTime = _getStartTimeFromString(isDynamic, fragData.t, referenceTime);
+        }
+
+        return startTime;
     }
 
     /**

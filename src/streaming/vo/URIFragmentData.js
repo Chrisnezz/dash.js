@@ -40,6 +40,7 @@ class URIFragmentData {
         this.id = null;
         this.s = null;
         this.r = null;
+        this.period = null;
     }
 }
 
