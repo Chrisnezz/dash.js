@@ -105,7 +105,7 @@ function DVBErrorsTranslator(config) {
                 url:                vo.url,
                 terror:             vo.tresponse,
                 servicelocation:    vo._serviceLocation,
-                ipaddress:          window.orb_ipaddress
+                ipaddress:          (window.orbNetwork ? window.orbNetwork.getPublicIpAddress() : undefined)
             };
             
             if (vo.responsecode === 0) {
