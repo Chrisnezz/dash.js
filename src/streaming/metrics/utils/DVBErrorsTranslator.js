@@ -100,12 +100,14 @@ function DVBErrorsTranslator(config) {
             (vo.responsecode >= 400) || // HTTP error status code
             (vo.responsecode < 100) || // unknown status codes
             (vo.responsecode >= 600)) { // unknown status codes
+            const parsed = new URL(vo.url, document.baseURI);
+            const ipaddress = (window.orbNetwork ? window.orbNetwork.resolveHostAddress(parsed.hostname) : undefined);
             let repObj = {
                 errorcode:          vo.responsecode,
                 url:                vo.url,
                 terror:             vo.tresponse,
                 servicelocation:    vo._serviceLocation,
-                ipaddress:          (window.orbNetwork ? window.orbNetwork.getPublicIpAddress() : undefined)
+                ipaddress:          ipaddress
             };
             
             if (vo.responsecode === 0) {
