@@ -278,13 +278,15 @@ function ManifestUpdater() {
         eventBus.trigger(Events.MANIFEST_UPDATED, { manifest: manifest });
         logger.info('Manifest has been refreshed at ' + date + '[' + date.getTime() / 1000 + '] ');
 
-        if (!isPaused) {
+        const streamsInfo = adapter.getStreamsInfo();
+        if (!isPaused || streamsInfo?.length === 0) {
             startManifestRefreshTimer();
         }
     }
 
     function _onRefreshTimer() {
-        if (isPaused) {
+        const streamsInfo = adapter.getStreamsInfo();
+        if (isPaused && streamsInfo?.length !== 0) {
             return;
         }
         if (isUpdating) {

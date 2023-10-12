@@ -81,7 +81,7 @@ function StreamController() {
         playbackController, serviceDescriptionController, mediaPlayerModel, customParametersModel, isPaused,
         initialPlayback, initialSteeringRequest, playbackEndedTimerInterval, preloadingStreams, settings,
         firstLicenseIsFetched, waitForPlaybackStartTimeout, providedStartTime, errorInformation,
-        pendingDynamicToStaticUpdate, error404Attempts;
+        pendingDynamicToStaticUpdate, error404Attempts, currentManifest;
 
     function setup() {
         logger = Debug(context).getInstance().getLogger(instance);
@@ -256,6 +256,10 @@ function StreamController() {
             const streamsInfo = adapter.getStreamsInfo();
 
             if (!activeStream && streamsInfo.length === 0) {
+                if (adapter.getIsDynamic(currentManifest)) {
+                    eventBus.trigger(Events.STREAMS_COMPOSED);
+                    return;
+                }
                 throw new Error('There are no periods in the MPD');
             }
 
@@ -1469,9 +1473,9 @@ function StreamController() {
 
             //Since streams are not composed yet , need to manually look up useCalculatedLiveEdgeTime to detect if stream
             //is SegmentTimeline to avoid using time source
-            const manifest = e.manifest;
+            const manifest = currentManifest = e.manifest;
             adapter.updatePeriods(manifest);
-            
+
             _setMediaDuration(adapter.getDuration(manifest));
             _createTextTracksForActiveStream();
 
@@ -1586,7 +1590,7 @@ function StreamController() {
         }
         else if (event.hasOwnProperty('presentationTime')) {
             startTime = event.presentationTime / timescale;
-        } 
+        }
         if (event.hasOwnProperty('duration') && event.duration < 0xffff) {
             if (event.duration / timescale < 0.25) {
                 endTime = (startTime + 250) / timescale;
