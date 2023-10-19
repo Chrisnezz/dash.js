@@ -80,7 +80,7 @@ function DVBErrorsTranslator(config) {
         // ORB: Triggered in BlackListController.js when blacklist is changed, this is not
         // the same as base URL changed, as sometimes there's only 1 base URL. Disabled
         // for now as messes up HbbTV test results
-        
+
         //report({
         //    errorcode: DVBErrors.BASE_URL_CHANGED,
         //    servicelocation: e.entry
@@ -109,7 +109,7 @@ function DVBErrorsTranslator(config) {
                 servicelocation:    vo._serviceLocation,
                 ipaddress:          ipaddress
             };
-            
+
             if (vo.responsecode === 0) {
                 repObj.errorcode = DVBErrors.DNS_RESOLUTION_FAILED;
             }
@@ -195,4 +195,4 @@ function DVBErrorsTranslator(config) {
 }
 
 DVBErrorsTranslator.__dashjs_factory_name = 'DVBErrorsTranslator';
-export default FactoryMaker.getSingletonFactory(DVBErrorsTranslator); 
+export default FactoryMaker.getSingletonFactory(DVBErrorsTranslator);
