@@ -281,6 +281,7 @@ function HTTPLoader(cfg) {
                             // Only trigger a sync if the loading failed for the first time
                             const initialNumberOfAttempts = mediaPlayerModel.getRetryAttemptsForType(HTTPRequest.MEDIA_SEGMENT_TYPE);
                             if (initialNumberOfAttempts === remainingAttempts) {
+                                eventBus.trigger(Events.SEGMENT_404_ERROR);
                                 eventBus.trigger(Events.ATTEMPT_BACKGROUND_SYNC);
                             }
                         }

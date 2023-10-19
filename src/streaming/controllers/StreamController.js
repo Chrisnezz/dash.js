@@ -166,6 +166,7 @@ function StreamController() {
 
         eventBus.on(ProtectionEvents.INTERNAL_KEY_STATUSES_CHANGED, _onInternalKeyStatusesChanged, instance);
         eventBus.on(Events.INBAND_EVENTS, _onInbandEvents, instance);
+        eventBus.on(Events.SEGMENT_404_ERROR, _onMissingSegment, instance);
     }
 
     function unRegisterEvents() {
@@ -195,6 +196,7 @@ function StreamController() {
 
         eventBus.off(ProtectionEvents.INTERNAL_KEY_STATUSES_CHANGED, _onInternalKeyStatusesChanged, instance);
         eventBus.off(Events.INBAND_EVENTS, _onInbandEvents, instance);
+        eventBus.off(Events.SEGMENT_404_ERROR, _onMissingSegment, instance);
     }
 
     function _checkConfig() {
@@ -2016,6 +2018,14 @@ function StreamController() {
 
     function getStreams() {
         return streams;
+    }
+
+    function _onMissingSegment() {
+        const isDynamic = adapter.getIsDynamic();
+        if (isDynamic) {
+            timeSyncController.reset();
+            manifestUpdater.refreshManifest();
+        }
     }
 
     instance = {

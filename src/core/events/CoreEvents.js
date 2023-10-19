@@ -81,6 +81,7 @@ class CoreEvents extends EventsBase {
         this.SETTING_UPDATED_PLAYBACK_RATE_MIN = 'settingUpdatedPlaybackRateMin';
         this.SET_FRAGMENTED_TEXT_AFTER_DISABLED = 'setFragmentedTextAfterDisabled';
         this.SET_NON_FRAGMENTED_TEXT = 'setNonFragmentedText';
+        this.SEGMENT_404_ERROR = 'missingSegments';
         this.SOURCE_BUFFER_ERROR = 'sourceBufferError';
         this.STREAMS_COMPOSED = 'streamsComposed';
         this.STREAM_BUFFERING_COMPLETED = 'streamBufferingCompleted';
