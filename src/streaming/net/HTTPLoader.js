@@ -282,7 +282,6 @@ function HTTPLoader(cfg) {
                             const initialNumberOfAttempts = mediaPlayerModel.getRetryAttemptsForType(HTTPRequest.MEDIA_SEGMENT_TYPE);
                             if (initialNumberOfAttempts === remainingAttempts) {
                                 eventBus.trigger(Events.SEGMENT_404_ERROR);
-                                eventBus.trigger(Events.ATTEMPT_BACKGROUND_SYNC);
                             }
                         }
                     } catch (e) {
