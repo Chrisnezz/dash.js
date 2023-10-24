@@ -1569,7 +1569,7 @@ function StreamController() {
         const eventSchemes = EVENT_SCHEMES[id.split('_')[0]];
         if (eventSchemes && !eventSchemes.includes(eventStream.schemeIdUri)) {
             mediaInfo = new MediaInfo();
-            mediaInfo.id = '';
+            mediaInfo.id = id;
             mediaInfo.lang = '';
             mediaInfo.type = Constants.TEXT;
             mediaInfo.isEmbedded = false;

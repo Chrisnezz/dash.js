@@ -241,7 +241,7 @@ function EventController() {
                     const currentTime = playbackController.getTime();
                     const duration = !isNaN(event.duration) ? event.duration : 0;
                     if (!_eventHasExpired(currentTime, duration, event.calculatedPresentationTime)) {
-                        let result = _addOrUpdateEvent(event, inlineEvents[periodId], true);
+                        let result = _addOrUpdateEvent(event, inlineEvents[periodId], false, true);
 
                         if (result === EVENT_HANDLED_STATES.ADDED) {
                             logger.debug(`Added inline event with id ${event.id} from period ${periodId}`);
@@ -277,7 +277,7 @@ function EventController() {
                 const currentTime = playbackController.getTime();
                 const duration = !isNaN(event.duration) ? event.duration : 0;
                 if (!_eventHasExpired(currentTime, duration, event.calculatedPresentationTime)) {
-                    let result = _addOrUpdateEvent(event, inbandEvents[periodId], false);
+                    let result = _addOrUpdateEvent(event, inbandEvents[periodId], true, false);
 
                     if (result === EVENT_HANDLED_STATES.ADDED) {
                         if (event.eventStream.schemeIdUri === MPD_RELOAD_SCHEME) {
@@ -304,22 +304,37 @@ function EventController() {
      * @return {string}
      * @private
      */
-    function _addOrUpdateEvent(event, events, shouldOverwriteExistingEvents = false) {
+    function _addOrUpdateEvent(event, events, isInband, shouldOverwriteExistingEvents = false) {
         const schemeIdUri = event.eventStream.schemeIdUri;
         const value = event.eventStream.value;
         const id = event.id;
         let eventState = EVENT_HANDLED_STATES.DISCARDED;
+        let indexOfExistingEvent = -1;
+        let sameInbandAdaptationSet = true;
 
         if (!events[schemeIdUri]) {
             events[schemeIdUri] = [];
         }
 
-        const indexOfExistingEvent = events[schemeIdUri].findIndex((e) => {
+        if (isInband) {
+            // <specReference name="TS-103-285" version="1.1.1">
+            // <specSection chapter="9.1.6">
+            // InbandEventStreams with the same @schemeIdUri and @value attributes that are present
+            // in multiple AdaptationSets shall be considered equivalent and only one of them shall be processed at any particular time.
+            const adaptationSetId = event.eventStream.representation.adaptation.index;
+            indexOfExistingEvent = events[schemeIdUri].findIndex((e) => {
+                return ((!value || (e.eventStream.value && e.eventStream.value === value)) && (e.eventStream.representation.adaptation.index !== adaptationSetId));
+            });
+
+            sameInbandAdaptationSet = (indexOfExistingEvent === -1) ? true : false;
+        }
+
+        indexOfExistingEvent = events[schemeIdUri].findIndex((e) => {
             return ((!value || (e.eventStream.value && e.eventStream.value === value)) && (e.id === id));
         });
 
         // New event, we add it to our list of events
-        if (indexOfExistingEvent === -1) {
+        if (indexOfExistingEvent === -1 && sameInbandAdaptationSet) {
             events[schemeIdUri].push(event);
             event.triggeredReceivedEvent = false;
             event.triggeredStartEvent = false;
