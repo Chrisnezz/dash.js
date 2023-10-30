@@ -28,30 +28,9 @@
  *  ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  *  POSSIBILITY OF SUCH DAMAGE.
  */
-import Constants from './constants/Constants.js';
-import DashConstants from '../dash/constants/DashConstants.js';
-import MetricsConstants from './constants/MetricsConstants.js';
-import FragmentModel from './models/FragmentModel.js';
-import BufferController from './controllers/BufferController.js';
-import NotFragmentedTextBufferController from './text/NotFragmentedTextBufferController.js';
-import ScheduleController from './controllers/ScheduleController.js';
-import RepresentationController from '../dash/controllers/RepresentationController.js';
-import FactoryMaker from '../core/FactoryMaker.js';
-import {checkInteger} from './utils/SupervisorTools.js';
-import EventBus from '../core/EventBus.js';
-import Events from '../core/events/Events.js';
-import MediaPlayerEvents from './MediaPlayerEvents.js';
-import DashHandler from '../dash/DashHandler.js';
-import Errors from '../core/errors/Errors.js';
-import DashJSError from './vo/DashJSError.js';
-import Debug from '../core/Debug.js';
-import URLUtils from '../streaming/utils/URLUtils.js';
-import {PlayListTrace} from './vo/metrics/PlayList.js';
-import SegmentsController from '../dash/controllers/SegmentsController.js';
-import {HTTPRequest} from './vo/metrics/HTTPRequest.js';
 import TimeUtils from './utils/TimeUtils.js';
 import MediaInfoSelectionInput from './vo/MediaInfoSelectionInput.js';
-
+import Event from '../dash/vo/Event.js';
 
 function StreamProcessor(config) {
 
@@ -82,6 +61,7 @@ function StreamProcessor(config) {
         bufferingTime,
         containsVideoTrack,
         currentMediaInfo,
+        currentQuality,
         dashHandler,
         enhancementStreamProcessor,
         instance,
@@ -218,6 +198,7 @@ function StreamProcessor(config) {
         qualityChangeInProgress = false;
         enhancementStreamProcessor = null;
         trackSwitchInProgress = false;
+        currentQuality = undefined;
         _resetPendingSwitchToRepresentation();
     }
 
@@ -1308,6 +1289,8 @@ function StreamProcessor(config) {
         const chunk = e.chunk;
         const bytes = chunk.bytes;
         const representationId = chunk.representation.id;
+        const qualityChanged = (currentQuality !== undefined && currentQuality !== representationId) ? true : false;
+        currentQuality = representationId;
         const currentRepresentation = getRepresentation(representationId);
         // If we switch tracks this event might be fired after the representations in the RepresentationController have been updated according to the new MediaInfo.
         // In this case there will be no currentRepresentation and voRepresentation matching the "old" quality
@@ -1335,7 +1318,7 @@ function StreamProcessor(config) {
                 const request = e.request;
 
                 isoFile = isoFile ? isoFile : boxParser.parse(bytes);
-                const events = _handleInbandEvents(isoFile, request, eventStreamMedia, eventStreamTrack);
+                const events = _handleInbandEvents(isoFile, request, eventStreamMedia, eventStreamTrack, qualityChanged);
                 eventBus.trigger(Events.INBAND_EVENTS,
                     { events: events },
                     { streamId: streamInfo.id }
@@ -1344,48 +1327,7 @@ function StreamProcessor(config) {
         }
     }
 
-    function _handleInbandPrfts(isoFile, timescale) {
-        const prftBoxes = isoFile.getBoxes('prft');
-
-        const prfts = [];
-        prftBoxes.forEach(prft => {
-            prfts.push(_parsePrftBox(prft, timescale));
-        });
-
-        return prfts;
-    }
-
-    function _parsePrftBox(prft, timescale) {
-        // Get prft type according to box flags
-        let type = 'unknown';
-        switch (prft.flags) {
-            case 0:
-                type = DashConstants.PRODUCER_REFERENCE_TIME_TYPE.ENCODER;
-                break;
-            case 16:
-                type = DashConstants.PRODUCER_REFERENCE_TIME_TYPE.APPLICATION;
-                break;
-            case 24:
-                type = DashConstants.PRODUCER_REFERENCE_TIME_TYPE.CAPTURED;
-                break;
-            default:
-                break;
-        }
-
-        // Get NPT timestamp according to IETF RFC 5905, relative to 1/1/1900
-        let ntpTimestamp = (prft.ntp_timestamp_sec * 1000) + (prft.ntp_timestamp_frac / 2 ** 32 * 1000);
-        ntpTimestamp = TimeUtils(context).getInstance().ntpToUTC(ntpTimestamp);
-
-        const mediaTime = (prft.media_time / timescale);
-
-        return {
-            type,
-            ntpTimestamp,
-            mediaTime
-        }
-    }
-
-    function _handleInbandEvents(isoFile, request, mediaInbandEvents, trackInbandEvents) {
+    function _handleInbandEvents(isoFile, request, mediaInbandEvents, trackInbandEvents, qualityChanged) {
         try {
             const eventStreams = {};
             const events = [];
@@ -1399,6 +1341,11 @@ function StreamProcessor(config) {
             const eventBoxes = isoFile.getBoxes('emsg');
 
             if (!eventBoxes || eventBoxes.length === 0) {
+                if (qualityChanged && inbandEvents.length > 0) {
+                    const event = new Event();
+                    event.eventStream = inbandEvents[0];
+                    events.push(event);
+                }
                 return events;
             }
 
