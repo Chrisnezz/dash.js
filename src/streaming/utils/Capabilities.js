@@ -490,6 +490,15 @@ function Capabilities() {
             supportedEssentialProps = _addProperties(supportedEssentialProps, [{ schemeIdUri: Constants.HDR_METADATA_FORMAT_SCHEME_ID_URI }]);
         }
 
+        // ORB: always support colorimetry essential properties regardless of media capabilities settings
+        supportedEssentialProps = _addProperties(supportedEssentialProps,
+            [
+                { schemeIdUri: Constants.COLOUR_PRIMARIES_SCHEME_ID_URI },
+                { schemeIdUri: Constants.MATRIX_COEFFICIENTS_SCHEME_ID_URI },
+                { schemeIdUri: Constants.TRANSFER_CHARACTERISTICS_SCHEME_ID_URI }
+            ]
+        );
+
         try {
             return ep.inArray(supportedEssentialProps);
         } catch (e) {
