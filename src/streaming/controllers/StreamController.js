@@ -525,6 +525,9 @@ function StreamController() {
             // - seek at given seek time
             // - or seek at period start if upcoming period is not prebuffered
             seekTime = !isNaN(seekTime) ? seekTime : (!keepBuffers && previousStream ? targetStream.getStreamInfo().start : NaN);
+            if (seekTime < 0) {
+                seekTime = 0;
+            }
             logger.info(`Switch to stream ${targetStream.getId()}. Seektime is ${seekTime}, current playback time is ${playbackController.getTime()}. Seamless period switch is set to ${keepBuffers}`);
 
             preloadingStreams = preloadingStreams.filter((s) => {
