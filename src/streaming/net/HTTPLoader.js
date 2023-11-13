@@ -122,7 +122,7 @@ function HTTPLoader(cfg) {
     function load(config) {
         if (config.request) {
             const retryAttempts = mediaPlayerModel.getRetryAttemptsForType(config.request.type);
-            return _internalLoad(config, retryAttempts);
+            return _internalLoad(config, retryAttempts, true);
         } else {
             if (config.error) {
                 config.error(config.request, 'error');
@@ -137,7 +137,7 @@ function HTTPLoader(cfg) {
      * @param {number} remainingAttempts
      * @private
      */
-    function _internalLoad(config, remainingAttempts) {
+    function _internalLoad(config, remainingAttempts, firstEntry) {
 
         /**
          * Fired when a request has completed, whether successfully (after load) or unsuccessfully (after abort, timeout or error).
@@ -275,11 +275,26 @@ function HTTPLoader(cfg) {
                         config.complete(requestObject, commonMediaResponse.statusText);
                     }
                 } else {
+                    // TS 103 285 10.8.6 Requirements on Players
+                    if (firstEntry) {
+                        const streamInfo = requestObject.mediaInfo ? requestObject.mediaInfo.streamInfo : null;
+                        const isDynamic = streamInfo && streamInfo.manifestInfo && streamInfo.manifestInfo.isDynamic;
+
+                        switch (commonMediaResponse.status) {
+                            case 404:
+                            case 410:
+                            case 416:
+                                // Missing segment: change BaseURL if static, retry once if dynamic
+                                remainingAttempts = isDynamic ? 1 : 0;
+                                break;
+                        }
+                    }
+
                     // If we get a 404 to a media segment we should check the client clock again and perform a UTC sync in the background.
                     try {
                         if (commonMediaResponse.status === 404 && settings.get().streaming.utcSynchronization.enableBackgroundSyncAfterSegmentDownloadError && requestObject.type === HTTPRequest.MEDIA_SEGMENT_TYPE) {
                             // Only trigger a sync if the loading failed for the first time
-                            const initialNumberOfAttempts = mediaPlayerModel.getRetryAttemptsForType(HTTPRequest.MEDIA_SEGMENT_TYPE);
+                            const initialNumberOfAttempts = 1;
                             if (initialNumberOfAttempts === remainingAttempts) {
                                 eventBus.trigger(Events.SEGMENT_404_ERROR);
                             }
@@ -342,7 +357,7 @@ function HTTPLoader(cfg) {
                     } else {
                         retryRequests.splice(retryRequests.indexOf(retryRequest), 1);
                     }
-                    _internalLoad(config, remainingAttempts);
+                    _internalLoad(config, remainingAttempts, false);
                 }, mediaPlayerModel.getRetryIntervalsForType(requestObject.type));
             } else {
                 if (requestObject.type === HTTPRequest.MSS_FRAGMENT_INFO_SEGMENT_TYPE) {
