@@ -500,12 +500,22 @@ function VideoModel() {
         return element ? element.textTracks : [];
     }
 
-    function getTextTrack(kind, label, lang, isTTML, isEmbedded, inBandMetadataTrackDispatchType) {
+    function getTextTrack(kind, label, lang, isTTML, isEmbedded, inBandMetadataTrackDispatchType, toAddTrack = false) {
+        function compareLabels(label1, label2, isEventOrInband) {
+            if (isEventOrInband) {
+                if (label1.startsWith('inbandEventStream') && label2.startsWith('inbandEventStream')) {
+                    return true;
+                }
+            }
+            return (label1 == label2);
+        }
+
         if (element) {
             for (let i = 0; i < element.textTracks.length; i++) {
                 //label parameter could be a number (due to adaptationSet), but label, the attribute of textTrack, is a string => to modify...
                 //label could also be undefined (due to adaptationSet)
-                if (element.textTracks[i].kind === kind && (label ? element.textTracks[i].label == label : true) &&
+                const trackLabel = element.textTracks[i].inBandMetadataTrackDispatchType ? element.textTracks[i].eventStreamId : element.textTracks[i].label;
+                if (element.textTracks[i].kind === kind && (label ? compareLabels(trackLabel, label, element.textTracks[i].inBandMetadataTrackDispatchType && toAddTrack) : true) &&
                     element.textTracks[i].language === lang && element.textTracks[i].isTTML === isTTML && element.textTracks[i].isEmbedded === isEmbedded &&
                     element.textTracks[i].inBandMetadataTrackDispatchType === inBandMetadataTrackDispatchType) {
                     return element.textTracks[i];
@@ -522,12 +532,14 @@ function VideoModel() {
         }
         // check if track of same type has not been already created for previous stream
         // then use it (no way to remove existing text track from video element)
-        let track = getTextTrack(kind, label, lang, isTTML, isEmbedded, inBandMetadataTrackDispatchType);
+        let track = getTextTrack(kind, label, lang, isTTML, isEmbedded, inBandMetadataTrackDispatchType, true);
         if (!track) {
-            track = element.addTextTrack(kind, label, lang);
+            const trackLabel = inBandMetadataTrackDispatchType ? '' : label;
+            track = element.addTextTrack(kind, trackLabel, lang);
             track.isEmbedded = isEmbedded;
             track.isTTML = isTTML;
             track.inBandMetadataTrackDispatchType = inBandMetadataTrackDispatchType;
+            track.eventStreamId = label;
         }
         return track;
     }
