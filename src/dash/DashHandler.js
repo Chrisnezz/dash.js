@@ -166,6 +166,10 @@ function DashHandler(config) {
             return false;
         }
 
+        if (lastSegment.presentationStartTime + lastSegment.duration >= representation.adaptation.period.duration && !representation.adaptation.period.nextPeriodId) {
+            return true;
+        }
+
         // Additional segment references may be added to the last period.
         // Additional periods may be added to the end of the MPD.
         // Segment references SHALL NOT be added to any period other than the last period.
