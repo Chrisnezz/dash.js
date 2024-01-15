@@ -515,6 +515,19 @@ function DashAdapter() {
             event.presentationTimeDelta = presentationTimeDelta;
             event.parsedMessageData = (schemeIdUri === Constants.ID3_SCHEME_ID_URI) ? getId3Frames(messageData) : null;
 
+            const orb204Data = { type: 'string', payload: messageData };
+            if (messageData && typeof(messageData) !== 'string') {
+                try {
+                    const textDecoder = new TextDecoder('utf-8');
+                    orb204Data.payload = textDecoder.decode(messageData);
+                    orb204Data.type = 'binary';
+                }
+                catch (e) {
+                    console.warn(e)
+                }
+            }
+            event.__orb_204data__ = orb204Data;
+
             return event;
         } catch (e) {
             return null;

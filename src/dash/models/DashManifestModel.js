@@ -1355,10 +1355,31 @@ function DashManifestModel() {
                         // to specifying a complete XML element(s) in the Event.
                         // It is useful when an event leans itself to a compact
                         // string representation'.
-                        event.messageData =
+                        event.messageData = 
                             currentMpdEvent.messageData ||
                             currentMpdEvent.__cdata ||
                             currentMpdEvent.__text;
+                        
+                        const orb204Data = { type: 'string', payload: '' };
+                        if (currentMpdEvent.contentEncoding === 'base64' && currentMpdEvent.__text) {
+                            try {
+                                orb204Data.payload = BASE64.decode(currentMpdEvent.__text);
+                                orb204Data.type = 'binary';
+                            }
+                            catch(e) {
+                                console.warn(e.message);
+                            }
+                        }
+                        else {
+                            orb204Data.payload = currentMpdEvent.__text || currentMpdEvent.messageData || '';
+                            if (/^[a-z0-9]+$/i.test(orb204Data.payload)) {
+                                orb204Data.type = 'binary';
+                            }
+                            else {
+                                orb204Data.type = 'xml';
+                            }
+                        }
+                        event.__orb_204data__ = orb204Data;
                     }
 
                     events.push(event);
