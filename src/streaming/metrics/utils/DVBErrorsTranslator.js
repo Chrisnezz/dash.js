@@ -117,6 +117,17 @@ function DVBErrorsTranslator(config) {
                 repObj.errorcode = DVBErrors.CONNECTION_REFUSED;
             }
 
+            if (vo.responsecode == 403) {
+                let repObj2 = {
+                    errorcode:          DVBErrors.BASE_URL_CHANGED,
+                    url:                vo.url,
+                    terror:             vo.tresponse,
+                    servicelocation:    vo._serviceLocation,
+                    ipaddress:          ipaddress
+                };
+                report(repObj2);
+            }
+
             report(repObj);
         }
     }
