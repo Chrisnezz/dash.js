@@ -375,7 +375,7 @@ function ManifestUpdater() {
     function getIsUpdating() {
         return isUpdating;
     }
-    
+
     function hasInbandEventStreams() {
         for (const ies in inbandEventStreams) {
             if (inbandEventStreams[ies]) {

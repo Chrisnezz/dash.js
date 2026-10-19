@@ -920,7 +920,7 @@ function Stream(config) {
         }
         else if (event.hasOwnProperty('presentationTime')) {
             startTime = event.presentationTime / timescale;
-        } 
+        }
         if (event.hasOwnProperty('duration') && event.duration < 0xffff) {
             if (event.duration / timescale < 0.25) {
                 endTime = (startTime + 250) / timescale;

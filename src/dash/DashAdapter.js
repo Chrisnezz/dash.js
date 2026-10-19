@@ -479,7 +479,7 @@ function DashAdapter() {
 
             const schemeIdUri = eventBox.scheme_id_uri;
             const value = eventBox.value;
-            
+
             if (!eventStreams[schemeIdUri + '/' + value]) {
                 return null;
             }
@@ -550,7 +550,7 @@ function DashAdapter() {
 
         return events;
     }
-    
+
     function getEventStreamsFor(info) {
         var eventStreams = [];
 
