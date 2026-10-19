@@ -16,12 +16,12 @@ try {
 // fix for html5 and cehtml support
 try {
    replace.sync({
-       files: 'dist/dash.all.min.js',
+       files: 'dist/**/dash.*',
        from: '"<![CDATA["+',
        to: '"<"+"!["+"C"+"DATA["+'
    });
    replace.sync({
-       files: 'dist/dash.all.min.js',
+       files: 'dist/**/dash.*',
        from: '+"]]>"',
        to: '+"]"+"]>"'
    });
