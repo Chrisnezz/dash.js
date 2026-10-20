@@ -28,6 +28,23 @@ describe('DashParser', function () {
         expect(dashParser.parse(manifest)).to.be.instanceOf(Object);
     });
 
+    it('should expose the canonical XML of an empty Event as messageData (org.hbbtv_DASH-131-EVENTS0120)', () => {
+        const mpd = `<?xml version="1.0"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" xmlns:a="urn:a" xmlns:b="urn:b" type="static" mediaPresentationDuration="PT10S">
+<Period id="p"><EventStream schemeIdUri="urn:x" timescale="1">
+<Event id="1" b:z="2" a:y="1&amp;" zz="q"/>
+<Event id="2">hello</Event>
+<Event id="3" contentEncoding="base64">aGVsbG8=</Event>
+<Event id="4" messageData="attr"/>
+</EventStream></Period></MPD>`;
+        const events = dashParser.parse(mpd).Period[0].EventStream[0].Event;
+
+        expect(events[0].messageData).to.equal('<Event xmlns:a="urn:a" xmlns:b="urn:b" id="1" zz="q" a:y="1&amp;" b:z="2"></Event>');
+        expect(events[1].messageData).to.equal('hello');
+        expect(Array.from(events[2].messageData)).to.deep.equal([104, 101, 108, 108, 111]);
+        expect(events[3].messageData).to.equal('attr');
+    });
+
     it('should return a parsed Patch object when parse is called with valid patch data', () => {
         const patchManifest = `<?xml version="1.0" encoding="UTF-8"?>
 <Patch mpdId="foobar"

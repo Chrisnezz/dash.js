@@ -37,7 +37,110 @@ import NumericMatcher from './matchers/NumericMatcher.js';
 import LangMatcher from './matchers/LangMatcher.js';
 import RepresentationBaseValuesMap from './maps/RepresentationBaseValuesMap.js';
 import SegmentValuesMap from './maps/SegmentValuesMap.js';
+import BASE64 from '../../../externals/base64.js';
 import { parseXml as cmlParseXml } from '@svta/cml-xml';
+
+const XML_NAMESPACE = 'http://www.w3.org/XML/1998/namespace';
+
+function _isXmlnsAttribute(name) {
+    return name === 'xmlns' || name.startsWith('xmlns:');
+}
+
+function _getTextContent(node) {
+    if (node.nodeName === '#text' || node.nodeName === '#cdata') {
+        return node.nodeValue || '';
+    }
+    return node.childNodes.map(_getTextContent).join('');
+}
+
+function _compare(a, b) {
+    return (a > b) - (a < b);
+}
+
+function _encodeC14nAttribute(value) {
+    return value.replace(/[&<"\x09\x0A\x0D]/g, c => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '"': '&quot;',
+        '\x09': '&#x9;',
+        '\x0A': '&#xA;',
+        '\x0D': '&#xD;'
+    }[c]));
+}
+
+function _encodeC14nText(value) {
+    return value.replace(/[&<>\x0D]/g, c => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '\x0D': '&#xD;'
+    }[c]));
+}
+
+/**
+ * Canonical XML (C14N) serialization of a raw (not yet processed) cml-xml node.
+ * Default namespace declarations are intentionally left out.
+ * @param {object} node
+ * @param {object} inScope - prefix -> namespace URI map in scope for this node
+ * @param {object} rendered - prefix -> namespace URI map already output by the ancestors
+ * @param {boolean} isRoot
+ * @return {string}
+ * @private
+ */
+function _toXmlC14n(node, inScope, rendered, isRoot) {
+    if (node.nodeName === '#text' || node.nodeName === '#cdata') {
+        return _encodeC14nText(node.nodeValue || '');
+    }
+    if (node.nodeName.startsWith('#')) {
+        return '';
+    }
+
+    const ownNamespaces = [];
+    const attributes = [];
+    const ownScope = { ...inScope };
+    const declared = [];
+
+    Object.keys(node.attributes).forEach((name) => {
+        if (_isXmlnsAttribute(name)) {
+            if (name !== 'xmlns') {
+                declared.push(name.slice(6));
+            }
+        } else {
+            attributes.push(name);
+        }
+    });
+
+    const candidates = isRoot ? Object.keys(ownScope).filter(p => p) : declared;
+    candidates.forEach((prefix) => {
+        if (rendered[prefix] !== ownScope[prefix]) {
+            ownNamespaces.push(prefix);
+        }
+    });
+
+    const namespaceOf = (attrName) => {
+        const p = attrName.indexOf(':');
+        if (p === -1) {
+            return '';
+        }
+        const prefix = attrName.slice(0, p);
+        return prefix === 'xml' ? XML_NAMESPACE : (ownScope[prefix] || '');
+    };
+    const localOf = (attrName) => attrName.slice(attrName.indexOf(':') + 1);
+
+    ownNamespaces.sort(_compare);
+    attributes.sort((a, b) => _compare(namespaceOf(a), namespaceOf(b)) || _compare(localOf(a), localOf(b)));
+
+    const printed = ownNamespaces.map(prefix => ` xmlns:${prefix}="${_encodeC14nAttribute(ownScope[prefix])}"`).join('') +
+        attributes.map(name => ` ${name}="${_encodeC14nAttribute(node.attributes[name])}"`).join('');
+
+    const newRendered = { ...rendered };
+    ownNamespaces.forEach((prefix) => {
+        newRendered[prefix] = ownScope[prefix];
+    });
+    const children = node.childNodes.map(child => _toXmlC14n(child, ownScope, newRendered, false)).join('');
+
+    return `<${node.nodeName}${printed}>${children}</${node.nodeName}>`;
+}
 
 // List of node that shall be represented as arrays
 const arrayNodes = [
@@ -137,18 +240,34 @@ function DashParser(config) {
         return manifest;
     }
 
-    // TODO org.hbbtv_DASH-131-EVENTS0120 (not ported): an <Event> with child elements must expose
-    // its canonical XML (C14N) form as messageData. The old orbdashjs patches (commits 1d0d001d and
-    // ec071604) did this via toXmlC14n() plus an x2js customElementFn hook for '*.Event' paths:
-    // no child nodes -> C14N of the node, contentEncoding base64 -> BASE64.decodeArray(textContent),
-    // else textContent. ec071604 fixed the C14N output to skip default-namespace (empty prefix) xmlns attrs.
-    // Needs reimplementing on top of @svta/cml-xml nodes. 1d0d001d also changed TextTracks.js
-    // (cue.id = '' when NaN; cue dedup also compares cue.data).
     function processXml(data) {
         const xml = cmlParseXml(data);
         const root = xml.childNodes.find(child => child.nodeName === 'MPD' || child.nodeName === 'Patch') || xml.childNodes[0];
 
-        function processNode(node) {
+        function processNode(node, parentNamespaces) {
+            // Track the namespace declarations in scope
+            let namespaces = parentNamespaces;
+            for (const k in node.attributes) {
+                if (_isXmlnsAttribute(k)) {
+                    if (namespaces === parentNamespaces) {
+                        namespaces = { ...parentNamespaces };
+                    }
+                    namespaces[k === 'xmlns' ? '' : k.slice(6)] = node.attributes[k];
+                }
+            }
+
+            // org.hbbtv_DASH-131-EVENTS0120: the Event payload is the canonical XML for an empty Event,
+            // the decoded bytes for base64 content, or the text content otherwise
+            if (node.localName === DashConstants.EVENT && !('messageData' in node.attributes)) {
+                if (!node.childNodes.length) {
+                    node.messageData = _toXmlC14n(node, namespaces, {}, true);
+                } else if (node.attributes.contentEncoding === 'base64') {
+                    node.messageData = BASE64.decodeArray(_getTextContent(node));
+                } else {
+                    node.messageData = _getTextContent(node);
+                }
+            }
+
             // Convert tag name
             let p = node.nodeName.indexOf(':');
             if (p !== -1) {
@@ -190,7 +309,7 @@ function DashParser(config) {
                     continue;
                 }
 
-                processNode(child);
+                processNode(child, namespaces);
 
                 const { nodeName } = child;
 
@@ -210,7 +329,7 @@ function DashParser(config) {
             node.__children = childNodes;
         }
 
-        processNode(root);
+        processNode(root, {});
 
         return root;
     }

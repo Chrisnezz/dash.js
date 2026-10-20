@@ -768,7 +768,7 @@ function TextTracks(config) {
         } else {
             cue = _getCueInformationForNonHtml(currentItem, timeOffset);
         }
-        cue.id = currentItem.id;
+        cue.id = !isNaN(currentItem.id) ? currentItem.id : '';
         cue.data = currentItem.messageData;
         return cue;
     }

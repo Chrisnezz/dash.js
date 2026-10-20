@@ -74,12 +74,15 @@ Skipped:
 - `f3a20d74`, `07d32d98`: only touch `externals/xml2json.js` / `dist`, which the fork no longer has.
 - `5aa98841` BASEURL0040: already in the fork.
 
-NOT ported (open):
-- `1d0d001d` + `ec071604` (org.hbbtv_DASH-131-EVENTS0120, canonical XML form of `<Event>` children as
-  `messageData`). Depended on the vendored x2js `customElementFn` hook; the fork parses with
-  `@svta/cml-xml`, so it needs reimplementing. See the TODO above `processXml` in
-  `src/dash/parser/DashParser.js`. `1d0d001d` also changed `TextTracks.js` (`cue.id = ''` when NaN;
-  cue dedup also compares `cue.data`).
+Ported by hand (new commit, not a cherry-pick):
+- `1d0d001d` + `ec071604` (org.hbbtv_DASH-131-EVENTS0120, canonical XML form of `<Event>` as
+  `messageData`). Reimplemented in `src/dash/parser/DashParser.js` on top of `@svta/cml-xml`
+  (`_toXmlC14n`, namespace tracking in `processXml`): empty Event -> C14N, base64 ->
+  `BASE64.decodeArray(text)`, else text content. Differences from the original: an Event with a
+  `messageData` attribute keeps it, and C14N text escapes use `&gt;` / `&#xD;` (the original had them
+  without `;`). `TextTracks.js`: `cue.id = ''` when NaN. The old cue-dedup change was not ported as
+  the fork no longer has that function. Covered by a unit test in `dash.DashParser.js`; the HbbTV
+  DASH-131 test itself has not been run.
 
 Next: lint/unit tests, run the HbbTV tests for the touched areas, then push.
 
