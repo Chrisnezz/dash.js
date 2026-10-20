@@ -137,6 +137,13 @@ function DashParser(config) {
         return manifest;
     }
 
+    // TODO org.hbbtv_DASH-131-EVENTS0120 (not ported): an <Event> with child elements must expose
+    // its canonical XML (C14N) form as messageData. The old orbdashjs patches (commits 1d0d001d and
+    // ec071604) did this via toXmlC14n() plus an x2js customElementFn hook for '*.Event' paths:
+    // no child nodes -> C14N of the node, contentEncoding base64 -> BASE64.decodeArray(textContent),
+    // else textContent. ec071604 fixed the C14N output to skip default-namespace (empty prefix) xmlns attrs.
+    // Needs reimplementing on top of @svta/cml-xml nodes. 1d0d001d also changed TextTracks.js
+    // (cue.id = '' when NaN; cue dedup also compares cue.data).
     function processXml(data) {
         const xml = cmlParseXml(data);
         const root = xml.childNodes.find(child => child.nodeName === 'MPD' || child.nodeName === 'Patch') || xml.childNodes[0];
