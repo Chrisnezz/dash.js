@@ -1520,7 +1520,7 @@ function StreamController() {
                     media = mediaInfos[index];
                 }
                 else {
-                    media = _convertEventStreamToMediaInfo(eventStream, 'inbandEventStream' + (eventStream.representation? '_' + eventStream.representation.id : ''));
+                    media = _convertEventStreamToMediaInfo(eventStream, 'inbandEventStream' + (eventStream.representation ? '_' + eventStream.representation.id : ''));
                     if (!media) {
                         continue;
                     }

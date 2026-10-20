@@ -1366,7 +1366,7 @@ function DashManifestModel() {
                                 orb204Data.payload = BASE64.decode(currentMpdEvent.__text);
                                 orb204Data.type = 'binary';
                             }
-                            catch(e) {
+                            catch (e) {
                                 console.warn(e.message);
                             }
                         }
