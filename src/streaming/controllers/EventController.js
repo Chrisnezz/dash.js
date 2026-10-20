@@ -33,11 +33,18 @@ import FactoryMaker from '../../core/FactoryMaker.js';
 import Debug from '../../core/Debug.js';
 import EventBus from '../../core/EventBus.js';
 import MediaPlayerEvents from '../../streaming/MediaPlayerEvents.js';
+import XHRLoader from '../net/XHRLoader.js';
+import Utils from '../../core/Utils.js';
+import CommonMediaRequest from '../vo/CommonMediaRequest.js';
+import CommonMediaResponse from '../vo/CommonMediaResponse.js';
 
 function EventController() {
 
     const MPD_RELOAD_SCHEME = 'urn:mpeg:dash:event:2012';
     const MPD_RELOAD_VALUE = 3; // for the MDP_RELOAD_SCHEME value 2 should be treated as 1 (TS 103 285 - V1.2.1, 9.1.4)
+
+    const MPD_CALLBACK_SCHEME = 'urn:mpeg:dash:event:callback:2015';
+    const MPD_CALLBACK_VALUE = 1;
 
     const REMAINING_EVENTS_THRESHOLD = 300;
 
@@ -495,6 +502,19 @@ function EventController() {
                         logger.debug(`Starting manifest refresh event ${eventId} at ${currentVideoTime}`);
                         _refreshManifest();
                     }
+                } else if (event.eventStream.schemeIdUri === MPD_CALLBACK_SCHEME && event.eventStream.value == MPD_CALLBACK_VALUE) {
+                    logger.debug(`Starting callback event ${eventId} at ${currentVideoTime}`);
+                    const url = event.messageData instanceof Uint8Array ? Utils.uint8ArrayToString(event.messageData) : event.messageData;
+                    _sendCallbackRequest(url);
+                } else {
+                    logger.debug(`Starting event ${eventId} from period ${event.eventStream.period.id} at ${currentVideoTime}`);
+                    eventBus.trigger(event.eventStream.schemeIdUri, { event }, { mode });
+                    if (settings.get().streaming.events.deleteEventMessageDataTimeout > -1) {
+                        setTimeout(() => {
+                            delete event.messageData;
+                            delete event.parsedMessageData;
+                        }, settings.get().streaming.events.deleteEventMessageDataTimeout);
+                    }
                 }
                 event.triggeredStartEvent = true;
             }
@@ -536,6 +556,29 @@ function EventController() {
         try {
             checkConfig();
             manifestUpdater.refreshManifest();
+        } catch (e) {
+            logger.error(e);
+        }
+    }
+
+    /**
+     * Send a callback request
+     * @param {String} url
+     * @private
+     */
+    function _sendCallbackRequest(url) {
+        try {
+            let loader = XHRLoader(context).create({});
+            const commonMediaRequest = new CommonMediaRequest(
+                {
+                    method: 'get',
+                    url: url,
+                    responseType: 'arraybuffer',
+                    customData: {}
+                }
+            );
+            const commonMediaResponse = new CommonMediaResponse({ request: commonMediaRequest });
+            loader.load(commonMediaRequest, commonMediaResponse);
         } catch (e) {
             logger.error(e);
         }
