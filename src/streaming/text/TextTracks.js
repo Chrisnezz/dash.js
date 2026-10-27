@@ -249,6 +249,11 @@ function TextTracks(config) {
                 continue;
             }
 
+            // ORB: metadata (DASH event) tracks keep all their cues, see addCaptions()
+            if (_isMetadataTrack(track)) {
+                continue;
+            }
+
             const { bufferToKeep, bufferPruningInterval } = settings.get().streaming.buffer;
 
             const now = Date.now();
@@ -602,6 +607,8 @@ function TextTracks(config) {
             return;
         }
 
+        const isMetadata = _isMetadataTrack(track);
+
         for (let item = 0; item < captionData.length; item++) {
             let cue = null;
             const currentItem = captionData[item];
@@ -628,12 +635,36 @@ function TextTracks(config) {
                     }
                 }
                 cueData.allCues.addCue(cue);
+                // ORB: metadata (DASH event) tracks bypass the v5 cue window, which only keeps cues
+                // around currentTime on the native track. As in dash.js v4, every event cue stays on
+                // the track so applications can inspect all of them (HbbTV DASH-EVENT tests).
+                if (isMetadata && !_metadataCueInTrack(track, cue)) {
+                    track.addCue(cue);
+                }
             } else {
                 logger.error('Impossible to display subtitles. You might have missed setting a TTML rendering div via player.attachTTMLRenderingDiv(TTMLRenderingDiv)');
             }
         }
 
         invalidateCueWindow();
+    }
+
+    function _isMetadataTrack(track) {
+        return !!track && (track.kind === 'metadata' || !!track.inBandMetadataTrackDispatchType);
+    }
+
+    // Same duplicate check dash.js v4 used before adding a cue to the native track
+    function _metadataCueInTrack(track, cue) {
+        if (!track.cues) {
+            return false;
+        }
+        for (let i = 0; i < track.cues.length; i++) {
+            const c = track.cues[i];
+            if (c.startTime === cue.startTime && c.endTime === cue.endTime && c.id === cue.id && c.data === cue.data) {
+                return true;
+            }
+        }
+        return false;
     }
 
     function _handleCaptionEvents(currentItem, timeOffset) {
