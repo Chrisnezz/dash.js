@@ -1551,7 +1551,7 @@ function StreamController() {
                         continue;
                     }
                     media.streamInfo = streamInfo;
-                    let events = eventStreams[i].Event_asArray;
+                    let events = eventStreams[i].Event;
                     if (events) {
                         const timescale = eventStreams[i].hasOwnProperty('timescale') ? eventStreams[i].timescale : 1;
                         for (let j = 0; j < events.length; j++) {
@@ -1608,10 +1608,14 @@ function StreamController() {
         else {
             endTime = Number.MAX_VALUE;
         }
+        // dash.js v4's x2js gave parsed elements a toString() returning their text content;
+        // the v5 parser stores it in __text/__cdata instead. Keep toString() as the fallback so
+        // the cue text stays non-empty (TextTracks only creates a cue when data is truthy).
+        const text = event.__text || event.__cdata;
         return {
             start: startTime,
             end: endTime,
-            data: event.toString(),
+            data: text ? text.toString() : event.toString(),
             id: event.id,
             messageData: event.messageData
         };
