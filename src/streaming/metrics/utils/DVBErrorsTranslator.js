@@ -90,8 +90,22 @@ function DVBErrorsTranslator(config) {
     function onBecameReporter() {
         report({
             errorcode: DVBErrors.BECAME_REPORTER,
-            servicelocation: (mpd.BaseURL ? mpd.BaseURL.serviceLocation : undefined)
+            servicelocation: _getPrimaryServiceLocation()
         });
+    }
+
+    // The parser gives MPD.BaseURL as an array; use the serviceLocation of the highest priority
+    // (lowest dvb:priority, default 1) BaseURL
+    function _getPrimaryServiceLocation() {
+        const baseUrls = mpd && mpd.BaseURL ? [].concat(mpd.BaseURL) : [];
+        const priorityOf = (baseUrl) => {
+            const priority = parseInt(baseUrl['dvb:priority'], 10);
+            return isNaN(priority) ? 1 : priority;
+        };
+        const primary = baseUrls
+            .filter((baseUrl) => baseUrl && baseUrl.serviceLocation !== undefined)
+            .sort((a, b) => priorityOf(a) - priorityOf(b))[0];
+        return primary ? primary.serviceLocation : undefined;
     }
 
     function handleHttpMetric(vo) {
