@@ -350,6 +350,13 @@ function EventController() {
                 let newDuration;
                 if (event.calculatedPresentationTime == 0xFFFFFFFF) {//0xFF... means remaining duration unknown
                     newDuration = NaN;
+                } else if (event.duration !== 0) {
+                    // ORB: an MPD validity expiration (event_duration > 0) only means the current MPD must be
+                    // refreshed before calculatedPresentationTime + duration; the refreshed MPD can extend the
+                    // presentation, so it must not cut the media/period duration (HbbTV DASH-ERRORREP0031).
+                    // Only event_duration 0 signals the end of the presentation (DASH-EVENT1022).
+                    // dash.js 4.4 never cut it in practice: it used event_duration in timescale ticks, not seconds.
+                    newDuration = NaN;
                 } else {
                     newDuration = event.calculatedPresentationTime + event.duration;
                 }

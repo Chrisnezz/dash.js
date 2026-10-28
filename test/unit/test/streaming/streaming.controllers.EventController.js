@@ -591,6 +591,22 @@ describe('EventController', function () {
             eventController.addInbandEvents([manifestExpiredEventStub], 'periodId');
         });
 
+        it('should not signal a new duration for MPD validity expiration events with a duration (ORB)', function (done) {
+            const validityEvent = Object.assign({}, manifestExpiredEventStub, { id: 4711, duration: 2.621 });
+            const manifestValidityExpiredHandler = function (event) {
+                expect(event.id).to.equal(validityEvent.id);
+                expect(event.validUntil).to.equal(validityEvent.calculatedPresentationTime);
+                expect(event.newDuration).to.be.NaN;
+
+                eventBus.off(MediaPlayerEvents.MANIFEST_VALIDITY_CHANGED, manifestValidityExpiredHandler, this);
+                done();
+            };
+
+            eventBus.on(MediaPlayerEvents.MANIFEST_VALIDITY_CHANGED, manifestValidityExpiredHandler, this);
+
+            eventController.addInbandEvents([validityEvent], 'periodId');
+        });
+
         it('should not fire manifest validity expiration events if an event with that ID has already been received', function () {
             let triggerCount = 0;
             const manifestValidityExpiredHandler = function () {
