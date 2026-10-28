@@ -296,6 +296,12 @@ function DashParser(config) {
                 }
 
                 node[k] = value;
+
+                // ORB: LangMatcher normalizes @lang to BCP-47 (e.g. "eng" -> "en"); HbbTV exposes the
+                // MPD value as is (AVComponent/AudioTrack.language), so keep the original next to it.
+                if (k === DashConstants.LANG && value !== attributes[k]) {
+                    node[DashConstants.ORB_ORIGINAL_LANG] = attributes[k];
+                }
             }
 
             // Convert children

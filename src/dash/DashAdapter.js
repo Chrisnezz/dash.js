@@ -1104,6 +1104,7 @@ function DashAdapter() {
         mediaInfo.representationCount = dashManifestModel.getRepresentationCount(realAdaptation);
         mediaInfo.labels = dashManifestModel.getLabelsForAdaptation(realAdaptation);
         mediaInfo.lang = dashManifestModel.getLanguageForAdaptation(realAdaptation);
+        mediaInfo.orbOriginalLang = dashManifestModel.getOriginalLanguageForAdaptation(realAdaptation);
         mediaInfo.segmentAlignment = dashManifestModel.getSegmentAlignment(realAdaptation);
         mediaInfo.subSegmentAlignment = dashManifestModel.getSubSegmentAlignment(realAdaptation);
         mediaInfo.viewpoint = dashManifestModel.getViewpointForAdaptation(realAdaptation);
@@ -1164,6 +1165,7 @@ function DashAdapter() {
             mediaInfo.selectionPriority = dashManifestModel.getSelectionPriority(realPreselection);
             mediaInfo.labels = dashManifestModel.getLabelsForAdaptation(realPreselection);
             mediaInfo.lang = dashManifestModel.getLanguageForAdaptation(realPreselection);
+            mediaInfo.orbOriginalLang = dashManifestModel.getOriginalLanguageForAdaptation(realPreselection);
             mediaInfo.viewpoint = dashManifestModel.getViewpointForAdaptation(realPreselection);
             mediaInfo.accessibility = dashManifestModel.getAccessibilityForAdaptation(realPreselection);
             mediaInfo.audioChannelConfiguration = dashManifestModel.getAudioChannelConfigurationForAdaptation(realPreselection);

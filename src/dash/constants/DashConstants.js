@@ -126,6 +126,8 @@ export default {
     MPD_TYPE: 'mpd',
     MPD_PATCH_TYPE: 'mpdpatch',
     ORDER: 'order',
+    // ORB: original (non-BCP-47-normalized) value of an element's @lang attribute
+    ORB_ORIGINAL_LANG: 'orbOriginalLang',
     ORIGINAL_MPD_ID: 'mpdId',
     ORIGINAL_PUBLISH_TIME: 'originalPublishTime',
     PATCH_LOCATION: 'PatchLocation',

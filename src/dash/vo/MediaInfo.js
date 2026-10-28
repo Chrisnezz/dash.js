@@ -49,6 +49,8 @@ class MediaInfo {
         this.isText = false;
         this.labels = null;
         this.lang = null;
+        // ORB: @lang as written in the MPD (lang is BCP-47 normalized, e.g. "eng" -> "en")
+        this.orbOriginalLang = null;
         this.mimeType = null;
         this.normalizedKeyIds = new Set();
         this.representationCount = 0;

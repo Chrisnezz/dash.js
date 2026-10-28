@@ -92,6 +92,23 @@ describe('DashParser', function () {
             expect(labelArray.length).to.equal(2);
             expect(labelArray[1].lang).to.equal('fr');
         });
+
+        it('should keep the original @lang value next to the normalized one (ORB)', async () => {
+            let parsedMpd = dashParser.parse(manifest);
+            let audioAdaptation = dashManifestModel.getAdaptationsForType(parsedMpd, 0, 'audio')[0];
+
+            expect(dashManifestModel.getLanguageForAdaptation(audioAdaptation)).to.equal('es');
+            expect(dashManifestModel.getOriginalLanguageForAdaptation(audioAdaptation)).to.equal('spa');
+        });
+
+        it('should return the @lang value as is when normalization does not change it (ORB)', () => {
+            expect(dashManifestModel.getOriginalLanguageForAdaptation({ lang: 'fr' })).to.equal('fr');
+        });
+
+        it('should return an empty string as original language when @lang is absent (ORB)', () => {
+            expect(dashManifestModel.getOriginalLanguageForAdaptation({})).to.equal('');
+            expect(dashManifestModel.getOriginalLanguageForAdaptation()).to.equal('');
+        });
     });
 
     describe('DashParser - ObjectIron', () => {

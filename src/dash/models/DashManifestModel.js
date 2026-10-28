@@ -255,6 +255,14 @@ function DashManifestModel() {
         return lang;
     }
 
+    // ORB: the @lang value as written in the MPD (getLanguageForAdaptation() returns it BCP-47 normalized)
+    function getOriginalLanguageForAdaptation(adaptation) {
+        if (adaptation && adaptation.hasOwnProperty(DashConstants.ORB_ORIGINAL_LANG)) {
+            return adaptation[DashConstants.ORB_ORIGINAL_LANG];
+        }
+        return getLanguageForAdaptation(adaptation);
+    }
+
     function getViewpointForAdaptation(adaptation) {
         if (!adaptation || !adaptation.hasOwnProperty(DashConstants.VIEWPOINT) || !adaptation[DashConstants.VIEWPOINT].length) {
             return [];
@@ -1800,6 +1808,7 @@ function DashManifestModel() {
         getIsTypeOf,
         getLabelsForAdaptation,
         getLanguageForAdaptation,
+        getOriginalLanguageForAdaptation,
         getLocation,
         getMainAdaptationSetForPreselection,
         getCommonRepresentationForPreselection,
