@@ -502,9 +502,10 @@ function StreamController() {
             let keepBuffers = false;
             let representationsFromPreviousPeriod = [];
             // Only reuse the previous period's SourceBuffers when the buffers can actually be kept
-            // (keepBuffers). _canSourceBuffersBeKept() already requires SourceBuffer.changeType()
-            // support, so on platforms without it (e.g. Chrome 68 / LG WebOS <= 5) keepBuffers is
-            // false and we fall back to a fresh-SourceBuffer ("cold") switch. keepBuffers is also
+            // (keepBuffers). _canSourceBuffersBeKept() requires SourceBuffer.changeType() support
+            // or (ORB) compatible codecs in both periods, so on platforms without changeType()
+            // (e.g. Chrome 68 / LG WebOS <= 5) keepBuffers is false for incompatible codecs and we
+            // fall back to a fresh-SourceBuffer ("cold") switch. keepBuffers is also
             // false when the transition is incompatible (e.g. clear -> encrypted): in that case the
             // previous SourceBufferSinks are reset/aborted by previousStream.deactivate(false), so
             // they must NOT be handed to the next period - doing so would make the new stream reuse
@@ -827,14 +828,49 @@ function StreamController() {
         try {
             // Seamless period switch allowed only if:
             // - none of the periods uses contentProtection.
-            // - AND changeType method is implemented
-            // TODO: If the codec family is the same or if there is period connectivity we can also use the same SourceBuffer
+            // - AND changeType method is implemented, OR (ORB) the periods use compatible codecs
             return (settings.get().streaming.buffer.reuseExistingSourceBuffers
                 && (capabilities.isProtectionCompatible(previousStream.getStreamInfo(), nextStream.getStreamInfo()) || firstLicenseIsFetched)
-                && (capabilities.supportsChangeType() && settings.get().streaming.buffer.useChangeType));
+                && ((capabilities.supportsChangeType() && settings.get().streaming.buffer.useChangeType) || _areMediaCodecsCompatible(nextStream, previousStream)));
         } catch (e) {
             return false;
         }
+    }
+
+    /**
+     * ORB: dash.js 4.4 (Stream.isMediaCodecCompatible) also kept the SourceBuffers on platforms without
+     * SourceBuffer.changeType() when the periods use compatible codecs. Without it every period boundary
+     * re-creates the MediaSource, and on such platforms (e.g. WPE) the media element is left paused after
+     * the reload (HbbTV HTML5-DASH020). BufferController._changeCodec() switches between representations
+     * of the same mime type and codec family without changeType().
+     * Compatible: for video and audio, every representation of the next period has a mime type and codec
+     * family that is also used in the previous period (or neither period has that media type).
+     * @param {object} nextStream
+     * @param {object} previousStream
+     * @return {boolean}
+     * @private
+     */
+    function _areMediaCodecsCompatible(nextStream, previousStream) {
+        return [Constants.VIDEO, Constants.AUDIO].every((type) => {
+            const previousSignatures = _getCodecSignatures(previousStream, type);
+            const nextSignatures = _getCodecSignatures(nextStream, type);
+            if (previousSignatures.length === 0 || nextSignatures.length === 0) {
+                return previousSignatures.length === nextSignatures.length;
+            }
+            return nextSignatures.every((signature) => previousSignatures.indexOf(signature) !== -1);
+        });
+    }
+
+    function _getCodecSignatures(stream, type) {
+        const mediaInfos = (adapter.getAllMediaInfoForType(stream.getStreamInfo(), type) || [])
+            .filter((mediaInfo) => !mediaInfo.isEmbedded);
+        return mediaInfos.reduce((signatures, mediaInfo) => {
+            const representations = adapter.getVoRepresentations(mediaInfo) || [];
+            representations.forEach((representation) => {
+                signatures.push(representation.mimeType + '|' + representation.codecFamily);
+            });
+            return signatures;
+        }, []);
     }
 
     /**
