@@ -4,6 +4,7 @@ import EventBus from '../../../../src/core/EventBus.js';
 import Errors from '../../../../src/core/errors/Errors.js';
 import Settings from '../../../../src/core/Settings.js';
 import DashConstants from '../../../../src/dash/constants/DashConstants.js';
+import MediaPlayerEvents from '../../../../src/streaming/MediaPlayerEvents.js';
 import AdapterMock from '../../mocks/AdapterMock.js';
 import ManifestModelMock from '../../mocks/ManifestModelMock.js';
 import ManifestLoaderMock from '../../mocks/ManifestLoaderMock.js';
@@ -325,6 +326,77 @@ describe('ManifestUpdater', function () {
             manifestUpdater.refreshManifest();
 
             expect(loadStub.calledWith(location[0].url)).to.be.true;
+        });
+    });
+
+    describe('MPD validity expiration InbandEventStream', function () {
+        const MPD_RELOAD_SCHEME = 'urn:mpeg:dash:event:2012';
+        let clock, loadStub, updatePeriodStub, streamsInfoStub;
+
+        function switchRepresentation(inbandEventStreams) {
+            const currentRepresentation = {};
+            if (inbandEventStreams) {
+                currentRepresentation[DashConstants.INBAND_EVENT_STREAM] = inbandEventStreams;
+            }
+            eventBus.trigger(MediaPlayerEvents.REPRESENTATION_SWITCH, { mediaType: 'video', currentRepresentation });
+        }
+
+        function loadDynamicManifest() {
+            eventBus.trigger(Events.INTERNAL_MANIFEST_LOADED, {
+                manifest: { url: 'http://example.com', type: DashConstants.DYNAMIC, loadedTime: new Date() }
+            });
+        }
+
+        beforeEach(function () {
+            // earlier tests leave isUpdating set via refreshManifest()
+            manifestUpdater.reset();
+            manifestUpdater.initialize();
+            clock = sinon.useFakeTimers();
+            loadStub = sinon.stub(manifestLoaderMock, 'load');
+            updatePeriodStub = sinon.stub(adapterMock, 'getManifestUpdatePeriod').returns(30);
+            streamsInfoStub = sinon.stub(adapterMock, 'getStreamsInfo').returns([{}]);
+            manifestModelMock.setValue({ url: 'http://example.com', type: DashConstants.DYNAMIC, loadedTime: new Date() });
+            eventBus.trigger(MediaPlayerEvents.PLAYBACK_STARTED);
+        });
+
+        afterEach(function () {
+            manifestUpdater.reset();
+            manifestUpdater.initialize();
+            clock.restore();
+            loadStub.restore();
+            updatePeriodStub.restore();
+            streamsInfoStub.restore();
+            manifestModelMock.setValue(null);
+        });
+
+        it('should poll the MPD every minimumUpdatePeriod when no InbandEventStream is present', function () {
+            switchRepresentation(null);
+            loadDynamicManifest();
+
+            clock.tick(31000);
+
+            expect(loadStub.calledOnce).to.be.true;
+        });
+
+        it('should not poll the MPD when the representation has an InbandEventStream array with the MPD reload scheme', function () {
+            switchRepresentation([
+                { schemeIdUri: 'urn:other:scheme', value: '1' },
+                { schemeIdUri: MPD_RELOAD_SCHEME, value: '1' }
+            ]);
+            loadDynamicManifest();
+
+            clock.tick(100000);
+
+            expect(loadStub.called).to.be.false;
+        });
+
+        it('should treat @value 2 like @value 1', function () {
+            switchRepresentation([{ schemeIdUri: MPD_RELOAD_SCHEME, value: '2' }]);
+            loadDynamicManifest();
+
+            clock.tick(100000);
+
+            expect(loadStub.called).to.be.false;
         });
     });
 });

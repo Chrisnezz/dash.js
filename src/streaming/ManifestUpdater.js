@@ -343,8 +343,8 @@ function ManifestUpdater() {
 
     function _onRepresentationSwitched(e) {
         const hadInbandEventStreams = hasInbandEventStreams();
-        const inbandEventStream = e.currentRepresentation[DashConstants.INBAND_EVENT_STREAM];
-        if (inbandEventStream && inbandEventStream.schemeIdUri === MPD_RELOAD_SCHEME && parseInt(inbandEventStream.value) & MPD_RELOAD_VALUE) {
+        const inbandEventStream = _getMpdReloadInbandEventStream(e.currentRepresentation);
+        if (inbandEventStream) {
             inbandEventStreams[e.mediaType] = inbandEventStream;
         }
         else {
@@ -354,6 +354,16 @@ function ManifestUpdater() {
         if (hadInbandEventStreams === (!inbandEventStreams[e.mediaType])) {
             startManifestRefreshTimer();
         }
+    }
+
+    // InbandEventStream is parsed as an array; return the MPD validity expiration stream, if any
+    function _getMpdReloadInbandEventStream(representation) {
+        const value = representation ? representation[DashConstants.INBAND_EVENT_STREAM] : null;
+        if (!value) {
+            return null;
+        }
+        const streams = Array.isArray(value) ? value : [value];
+        return streams.find((ies) => ies && ies.schemeIdUri === MPD_RELOAD_SCHEME && (parseInt(ies.value) & MPD_RELOAD_VALUE)) || null;
     }
 
     function _onPlaybackStarted(/*e*/) {
