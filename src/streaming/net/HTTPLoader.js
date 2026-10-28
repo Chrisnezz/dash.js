@@ -276,23 +276,19 @@ function HTTPLoader(cfg) {
                     }
                 } else {
                     // TS 103 285 10.8.6 Requirements on Players
-                    if (firstEntry) {
-                        const streamInfo = requestObject.mediaInfo ? requestObject.mediaInfo.streamInfo : null;
+                    const isMissingSegment = _isMissingSegmentStatus(commonMediaResponse.status);
+                    if (firstEntry && isMissingSegment) {
+                        const mediaInfo = requestObject.representation ? requestObject.representation.mediaInfo : null;
+                        const streamInfo = mediaInfo ? mediaInfo.streamInfo : null;
                         const isDynamic = streamInfo && streamInfo.manifestInfo && streamInfo.manifestInfo.isDynamic;
 
-                        switch (commonMediaResponse.status) {
-                            case 404:
-                            case 410:
-                            case 416:
-                                // Missing segment: change BaseURL if static, retry once if dynamic
-                                remainingAttempts = isDynamic ? 1 : 0;
-                                break;
-                        }
+                        // Missing segment: change BaseURL if static, retry once if dynamic
+                        remainingAttempts = isDynamic ? 1 : 0;
                     }
 
-                    // If we get a 404 to a media segment we should check the client clock again and perform a UTC sync in the background.
+                    // On a missing media segment, reload the MPD (dynamic) or re-check the client clock (static).
                     try {
-                        if (commonMediaResponse.status === 404 && settings.get().streaming.utcSynchronization.enableBackgroundSyncAfterSegmentDownloadError && requestObject.type === HTTPRequest.MEDIA_SEGMENT_TYPE) {
+                        if (isMissingSegment && settings.get().streaming.utcSynchronization.enableBackgroundSyncAfterSegmentDownloadError && requestObject.type === HTTPRequest.MEDIA_SEGMENT_TYPE) {
                             // Only trigger a sync if the loading failed for the first time
                             const initialNumberOfAttempts = 1;
                             if (initialNumberOfAttempts === remainingAttempts) {
@@ -494,6 +490,11 @@ function HTTPLoader(cfg) {
             request.type === HTTPRequest.MEDIA_SEGMENT_TYPE ||
             request.type === HTTPRequest.BITSTREAM_SWITCHING_SEGMENT_TYPE ||
             request.type === HTTPRequest.MSS_FRAGMENT_INFO_SEGMENT_TYPE;
+    }
+
+    // TS 103 285 10.8.5: 404 (Not Found), 410 (Gone) and 416 (Range Not Satisfiable) indicate a missing segment
+    function _isMissingSegmentStatus(status) {
+        return status === 404 || status === 410 || status === 416;
     }
 
     function _applyRequestInterceptors(httpRequest) {
