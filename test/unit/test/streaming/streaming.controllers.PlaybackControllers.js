@@ -233,6 +233,41 @@ describe('PlaybackController', function () {
             })
         })
 
+        describe('updateCurrentTime()', function () {
+            beforeEach(function () {
+                videoModelMock.time = 10;
+                videoModelMock.state = 4;
+                dashMetricsMock.currentDVRInfo = { range: { start: 100, end: 130 } };
+            });
+
+            afterEach(function () {
+                dashMetricsMock.currentDVRInfo = null;
+                videoModelMock.state = undefined;
+            });
+
+            it('should not seek out of the DVR window while playback is not stalled', function () {
+                playbackController.updateCurrentTime();
+                expect(videoModelMock.time).to.equal(10);
+            });
+
+            it('should seek into the DVR window without a stall when ignoreStallState is set', function () {
+                playbackController.updateCurrentTime(null, true);
+                expect(videoModelMock.time).to.equal(100);
+            });
+
+            it('should not seek when ignoreStallState is set but the position is inside the DVR window', function () {
+                videoModelMock.time = 110;
+                playbackController.updateCurrentTime(null, true);
+                expect(videoModelMock.time).to.equal(110);
+            });
+
+            it('should not seek when ignoreStallState is set but playback is paused', function () {
+                videoModelMock.ispaused = true;
+                playbackController.updateCurrentTime(null, true);
+                expect(videoModelMock.time).to.equal(10);
+            });
+        });
+
         describe('video management', function () {
 
             it('should start playing video', function () {

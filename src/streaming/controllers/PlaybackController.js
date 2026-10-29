@@ -529,8 +529,10 @@ function PlaybackController() {
     /**
      * Compare the current time of the video against the DVR window. If we are out of the DVR window we need to seek.
      * @param {object} mediaType
+     * @param {boolean} ignoreStallState - seek even when playback has not stalled yet (e.g. right after an MPD reload
+     * caused by a missing segment, so the position is corrected before the missing segment is requested again)
      */
-    function updateCurrentTime(mediaType = null) {
+    function updateCurrentTime(mediaType = null, ignoreStallState = false) {
         if (isPaused() || !isDynamic || videoModel.getReadyState() === 0 || isSeeking() || manifestUpdateInProgress) {
             return;
         }
@@ -544,7 +546,7 @@ function PlaybackController() {
         const currentTime = getTime();
         const actualTime = _getAdjustedPresentationTime(currentTime, mediaType);
         const timeChanged = (!isNaN(actualTime) && actualTime !== currentTime);
-        if (timeChanged && !isSeeking() && (isStalled() || playbackStalled || videoModel.getReadyState() === 1)) {
+        if (timeChanged && !isSeeking() && (ignoreStallState || isStalled() || playbackStalled || videoModel.getReadyState() === 1)) {
             logger.debug(`UpdateCurrentTime: Seek to actual time: ${actualTime} from currentTime: ${currentTime}`);
             seek(actualTime, false, false);
         }

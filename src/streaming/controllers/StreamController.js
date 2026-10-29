@@ -81,7 +81,7 @@ function StreamController() {
         playbackController, serviceDescriptionController, mediaPlayerModel, customParametersModel, isPaused,
         initialPlayback, initialSteeringRequest, playbackEndedTimerInterval, preloadingStreams, settings,
         firstLicenseIsFetched, waitForPlaybackStartTimeout, providedStartTime, errorInformation,
-        pendingDynamicToStaticUpdate, currentManifest;
+        pendingDynamicToStaticUpdate, pendingMissingSegmentPositionCheck, currentManifest;
 
     function setup() {
         logger = Debug(context).getInstance().getLogger(instance);
@@ -299,6 +299,7 @@ function StreamController() {
                 .then(() => {
                     eventBus.trigger(Events.STREAMS_COMPOSED);
                     _handlePendingDynamicToStaticUpdate();
+                    _handlePendingMissingSegmentPositionCheck();
                     // Additional periods might have been added after an MPD update. Check again if we can start prebuffering.
                     _checkIfPrebufferingCanStart();
                 })
@@ -1971,6 +1972,7 @@ function StreamController() {
         autoPlay = true;
         playbackEndedTimerInterval = null;
         pendingDynamicToStaticUpdate = false;
+        pendingMissingSegmentPositionCheck = false;
         firstLicenseIsFetched = false;
         preloadingStreams = [];
         waitForPlaybackStartTimeout = null;
@@ -2046,11 +2048,27 @@ function StreamController() {
     function _onMissingSegment() {
         const isDynamic = adapter.getIsDynamic();
         if (isDynamic) {
+            pendingMissingSegmentPositionCheck = true;
             manifestUpdater.refreshManifest();
         }
         else {
             eventBus.trigger(Events.ATTEMPT_BACKGROUND_SYNC);
         }
+    }
+
+    /**
+     * TS 103 285 10.8.6: after a missing segment, the MPD is reloaded and the time re-synchronised. If the current
+     * position is no longer available according to the new MPD and time, adjust it right away. Waiting for playback
+     * to stall would let the pending retry of the missing segment fail first and raise a fatal download error.
+     * @private
+     */
+    function _handlePendingMissingSegmentPositionCheck() {
+        if (!pendingMissingSegmentPositionCheck) {
+            return;
+        }
+        pendingMissingSegmentPositionCheck = false;
+        addDVRMetric();
+        playbackController.updateCurrentTime(null, true);
     }
 
     instance = {
