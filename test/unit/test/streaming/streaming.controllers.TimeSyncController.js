@@ -111,6 +111,108 @@ describe('TimeSyncController', function () {
         }, date.toString());
     });
 
+    describe('static MPD', function () {
+        afterEach(function () {
+            errHandlerMock.reset();
+        });
+
+        it('should not make a request and complete immediately when the MPD has no UTCTiming element', function (done) {
+            const self = this;
+            function onCompleted() {
+                eventBus.off(Events.TIME_SYNCHRONIZATION_COMPLETED, onCompleted, this);
+                check(done, function () {
+                    expect(self.requests.length).to.equal(0);
+                });
+            }
+
+            eventBus.on(Events.TIME_SYNCHRONIZATION_COMPLETED, onCompleted, this);
+            timeSyncController.initialize();
+            timeSyncController.attemptSync([], false);
+        });
+
+        it('should request the UTCTiming source signalled in the MPD (http-head)', function (done) {
+            const self = this;
+            function onCompleted() {
+                eventBus.off(Events.TIME_SYNCHRONIZATION_COMPLETED, onCompleted, this);
+                check(done, function () {
+                    expect(self.requests[0].method).to.equal('HEAD');
+                    expect(self.requests[0].url).to.equal('http://time.test/timeserver.php?time=1');
+                });
+            }
+
+            eventBus.on(Events.TIME_SYNCHRONIZATION_COMPLETED, onCompleted, this);
+            timeSyncController.initialize();
+            timeSyncController.attemptSync([{
+                schemeIdUri: 'urn:mpeg:dash:utc:http-head:2014',
+                value: 'http://time.test/timeserver.php?time=1'
+            }], false);
+
+            expect(self.requests.length).to.equal(1);
+            self.requests[0].respond(200, { 'Date': new Date().toUTCString() }, '');
+        });
+
+        it('should request the UTCTiming source signalled in the MPD (http-xsdate)', function (done) {
+            const self = this;
+            function onCompleted() {
+                eventBus.off(Events.TIME_SYNCHRONIZATION_COMPLETED, onCompleted, this);
+                check(done, function () {
+                    expect(self.requests[0].method).to.equal('GET');
+                    expect(self.requests[0].url).to.equal('http://time.test/timeserver.php?time=1');
+                });
+            }
+
+            eventBus.on(Events.TIME_SYNCHRONIZATION_COMPLETED, onCompleted, this);
+            timeSyncController.initialize();
+            timeSyncController.attemptSync([{
+                schemeIdUri: 'urn:mpeg:dash:utc:http-xsdate:2014',
+                value: 'http://time.test/timeserver.php?time=1'
+            }], false);
+
+            expect(self.requests.length).to.equal(1);
+            self.requests[0].respond(200, { 'Content-Type': 'text/plain' }, new Date().toISOString());
+        });
+
+        it('should not raise a time sync error when the sync of a static MPD fails', function (done) {
+            const self = this;
+            function onCompleted() {
+                eventBus.off(Events.TIME_SYNCHRONIZATION_COMPLETED, onCompleted, this);
+                check(done, function () {
+                    expect(errHandlerMock.errorCode).to.be.undefined;
+                });
+            }
+
+            eventBus.on(Events.TIME_SYNCHRONIZATION_COMPLETED, onCompleted, this);
+            settings.update({ streaming: { utcSynchronization: { useManifestDateHeaderTimeSource: false } } });
+            timeSyncController.initialize();
+            timeSyncController.attemptSync([{
+                schemeIdUri: 'urn:mpeg:dash:utc:http-xsdate:2014',
+                value: 'http://time.test/timeserver.php?time=1'
+            }], false);
+
+            self.requests[0].respond(404, {}, '');
+        });
+
+        it('should still raise a time sync error when the sync of a dynamic MPD fails', function (done) {
+            const self = this;
+            function onCompleted() {
+                eventBus.off(Events.TIME_SYNCHRONIZATION_COMPLETED, onCompleted, this);
+                check(done, function () {
+                    expect(errHandlerMock.errorCode).to.equal(16);
+                });
+            }
+
+            eventBus.on(Events.TIME_SYNCHRONIZATION_COMPLETED, onCompleted, this);
+            settings.update({ streaming: { utcSynchronization: { useManifestDateHeaderTimeSource: false } } });
+            timeSyncController.initialize();
+            timeSyncController.attemptSync([{
+                schemeIdUri: 'urn:mpeg:dash:utc:http-xsdate:2014',
+                value: 'http://time.test/timeserver.php?time=1'
+            }], true);
+
+            self.requests[0].respond(404, {}, '');
+        });
+    });
+
 });
 
 function check(done, f) {

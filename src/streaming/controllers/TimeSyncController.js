@@ -61,6 +61,7 @@ function TimeSyncController() {
         dashMetrics,
         backgroundSyncTimeOffsets,
         timingSources,
+        syncIsForDynamic,
         timeOfLastSync,
         timeOfLastBackgroundSync,
         lastOffset,
@@ -100,6 +101,7 @@ function TimeSyncController() {
     function _resetInitialSettings() {
         backgroundSyncTimeOffsets = [];
         timingSources = [];
+        syncIsForDynamic = false;
         timeOfLastSync = null;
         timeOfLastBackgroundSync = null;
         lastTimingSource = null;
@@ -150,6 +152,7 @@ function TimeSyncController() {
     function attemptSync(tSources, isDynamic) {
 
         timingSources = tSources;
+        syncIsForDynamic = !!isDynamic;
 
         // Stop if we are already synchronizing
         if (isSynchronizing) {
@@ -291,7 +294,12 @@ function TimeSyncController() {
      */
     function _shouldPerformSynchronization(isDynamic) {
         try {
-            if (!isDynamic || !settings.get().streaming.utcSynchronization.enabled) {
+            if (!settings.get().streaming.utcSynchronization.enabled) {
+                return false;
+            }
+            // A static MPD is only synchronised when it signals its own UTCTiming source
+            // (DVB-DASH: the player uses the time source given in the MPD, e.g. for availabilityStartTime)
+            if (!isDynamic && (!timingSources || timingSources.length === 0)) {
                 return false;
             }
             const timeBetweenSyncAttempts = !isNaN(internalTimeBetweenSyncAttempts) ? internalTimeBetweenSyncAttempts : DEFAULT_TIME_BETWEEN_SYNC_ATTEMPTS;
@@ -552,7 +560,12 @@ function TimeSyncController() {
         if (failed) {
             lastTimingSource = null;
             isSynchronizing = false;
-            errHandler.error(new DashJSError(Errors.TIME_SYNC_FAILED_ERROR_CODE, Errors.TIME_SYNC_FAILED_ERROR_MESSAGE));
+            if (syncIsForDynamic) {
+                errHandler.error(new DashJSError(Errors.TIME_SYNC_FAILED_ERROR_CODE, Errors.TIME_SYNC_FAILED_ERROR_MESSAGE));
+            } else {
+                // Static content does not depend on the time source, so a failed sync must not raise a playback error
+                logger.warn('UTC sync for a static MPD failed, continuing without a client-server time offset');
+            }
         }
 
         // Notify other classes
