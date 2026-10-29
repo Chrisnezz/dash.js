@@ -248,6 +248,7 @@ function HTTPLoader(cfg) {
             _applyResponseInterceptors(commonMediaResponse).then((_httpResponse) => {
                 commonMediaResponse = _httpResponse;
 
+                requestObject._aborted = aborted;
                 _addHttpRequestMetric(commonMediaRequest, commonMediaResponse, traces);
 
                 // Ignore aborted requests

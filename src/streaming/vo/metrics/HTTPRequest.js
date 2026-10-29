@@ -137,6 +137,10 @@ class HTTPRequest {
          * The values derived from the ResourceTimingAPI.
          */
         this._resourceTimingValues = null;
+        /**
+         * ORB: true if the player aborted the request itself, i.e. its status 0 is not a network error
+         */
+        this._aborted = false;
     }
 }
 

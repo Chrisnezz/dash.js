@@ -38,7 +38,9 @@ function DVBErrorsTranslator(config) {
     config = config || {};
     let instance,
         mpd,
-        corruptMediaReported = false;
+        corruptMediaReported = false,
+        connectionErrorCache = {};
+    const CONNECTION_ERROR_CACHE_MS = 5000;
     const eventBus = config.eventBus;
     const dashMetrics = config.dashMetrics;
     const metricsConstants = config.metricsConstants;
@@ -110,6 +112,10 @@ function DVBErrorsTranslator(config) {
     }
 
     function handleHttpMetric(vo) {
+        // ORB: a request the player aborted itself (seek, quality switch, reset) is not a network error
+        if (vo._aborted) {
+            return;
+        }
         if ((vo.responsecode === 0) || // connection failure - unknown
             (vo.responsecode == null) || // Generated on .catch() and when uninitialized
             (vo.responsecode >= 400) || // HTTP error status code
@@ -125,7 +131,7 @@ function DVBErrorsTranslator(config) {
             };
 
             if (vo.responsecode === 0) {
-                repObj.errorcode = DVBErrors.DNS_RESOLUTION_FAILED;
+                repObj.errorcode = _resolveConnectionError(vo.url);
             }
             if (vo.responsecode == null) {
                 repObj.errorcode = DVBErrors.CONNECTION_REFUSED;
@@ -149,6 +155,34 @@ function DVBErrorsTranslator(config) {
     function _resolveIpAddress(url) {
         const parsed = new URL(url, document.baseURI);
         return (window.orbNetwork ? window.orbNetwork.resolveHostAddress(parsed.hostname) : undefined);
+    }
+
+    // ORB: The browser gives no reason for a failed request (status 0), so ask ORB to retry the
+    // connection natively and classify it as C00 (DNS), C01 (unreachable), C02 (refused) or C03.
+    // Falls back to C00 when ORB does not provide this. The result is cached per host and port
+    // for a short time, as the native call blocks and failures usually come in series.
+    function _resolveConnectionError(url) {
+        const network = window.orbNetwork;
+        if (!network || typeof network.resolveConnectionError !== 'function') {
+            return DVBErrors.DNS_RESOLUTION_FAILED;
+        }
+
+        try {
+            const parsed = new URL(url, document.baseURI);
+            const port = parsed.port ? parseInt(parsed.port, 10) : (parsed.protocol === 'https:' ? 443 : 80);
+            const key = `${parsed.hostname}:${port}`;
+            const now = Date.now();
+            const cached = connectionErrorCache[key];
+            if (cached && now - cached.time < CONNECTION_ERROR_CACHE_MS) {
+                return cached.errorcode;
+            }
+
+            const errorcode = network.resolveConnectionError(parsed.hostname, port) || DVBErrors.DNS_RESOLUTION_FAILED;
+            connectionErrorCache[key] = { errorcode, time: now };
+            return errorcode;
+        } catch (e) {
+            return DVBErrors.DNS_RESOLUTION_FAILED;
+        }
     }
 
     function _isIsoBmff(request) {
@@ -202,7 +236,7 @@ function DVBErrorsTranslator(config) {
         xhr.onloadend = () => {
             const status = xhr.status;
             if (status === 0) {
-                reportFontError(DVBErrors.DNS_RESOLUTION_FAILED);
+                reportFontError(_resolveConnectionError(font.url));
             } else if (status < 200 || status >= 400) {
                 reportFontError(status);
             } else {
@@ -286,6 +320,7 @@ function DVBErrorsTranslator(config) {
             instance
         );
         corruptMediaReported = false;
+        connectionErrorCache = {};
     }
 
     instance = {

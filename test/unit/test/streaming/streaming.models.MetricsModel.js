@@ -118,4 +118,14 @@ describe('MetricsModel', function () {
         eventBus.on(Events.METRIC_ADDED, onMetricAdded, this);
         metricsModel.addRepresentationSwitch(Constants.VIDEO, '', '', '');
     });
+
+    it('should mark an HTTP request metric as aborted when the player aborted the request', function () {
+        const request = { mediaType: Constants.VIDEO, url: 'http://a.example.com/seg.m4s', _aborted: true };
+        metricsModel.addHttpRequest(request, { url: request.url, status: 0, headers: {} });
+        metricsModel.addHttpRequest(Object.assign({}, request, { _aborted: false }), { url: request.url, status: 0, headers: {} });
+
+        const httpList = metricsModel.getMetricsFor(Constants.VIDEO).HttpList;
+        expect(httpList[0]._aborted).to.be.true;
+        expect(httpList[1]._aborted).to.be.false;
+    });
 });

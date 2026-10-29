@@ -210,5 +210,76 @@ describe('DVBErrorsTranslator', function () {
         it('should report a connection failure like a failed media request', function () {
             expect(fontDownloadFails(0).errorcode).to.equal(DVBErrors.DNS_RESOLUTION_FAILED);
         });
+
+        it('should classify a font connection failure with the ORB connection check', function () {
+            window.orbNetwork = { resolveHostAddress: () => '', resolveConnectionError: sinon.stub().returns('C01') };
+            try {
+                expect(fontDownloadFails(0).errorcode).to.equal('C01');
+                expect(window.orbNetwork.resolveConnectionError.calledOnceWith('a.example.com', 80)).to.be.true;
+            } finally {
+                delete window.orbNetwork;
+            }
+        });
+    });
+
+    describe('connection failure (status 0) reports', function () {
+        let resolveConnectionError;
+
+        function requestFails(url, aborted = false) {
+            eventBus.trigger(MediaPlayerEvents.METRIC_ADDED, {
+                metric: MetricsConstants.HTTP_REQUEST,
+                value: { url, responsecode: 0, tresponse: null, _serviceLocation: 'hbbtvTest', _aborted: aborted }
+            });
+        }
+
+        beforeEach(function () {
+            resolveConnectionError = sinon.stub().returns('C02');
+            window.orbNetwork = { resolveHostAddress: () => '10.0.0.1', resolveConnectionError };
+            eventBus.trigger(Events.MANIFEST_UPDATED, { manifest: { url: 'http://example.com/test.mpd' } });
+        });
+
+        afterEach(function () {
+            delete window.orbNetwork;
+        });
+
+        it('should report the code from the ORB connection check with host and port', function () {
+            requestFails('http://hbbtv1.test:81/DASH/seg_1.m4s');
+
+            expect(resolveConnectionError.calledOnceWith('hbbtv1.test', 81)).to.be.true;
+            const report = dashMetrics.addDVBErrors.firstCall.args[0];
+            expect(report.errorcode).to.equal('C02');
+            expect(report.url).to.equal('http://hbbtv1.test:81/DASH/seg_1.m4s');
+            expect(report.ipaddress).to.equal('10.0.0.1');
+            expect(report.servicelocation).to.equal('hbbtvTest');
+        });
+
+        it('should use the default port of the URL scheme', function () {
+            requestFails('https://secure.example.com/seg_1.m4s');
+
+            expect(resolveConnectionError.calledOnceWith('secure.example.com', 443)).to.be.true;
+        });
+
+        it('should check a host and port only once within a short time', function () {
+            requestFails('http://hbbtv1.test:81/DASH/seg_1.m4s');
+            requestFails('http://hbbtv1.test:81/DASH/seg_2.m4s');
+
+            expect(resolveConnectionError.calledOnce).to.be.true;
+            expect(dashMetrics.addDVBErrors.calledTwice).to.be.true;
+            expect(dashMetrics.addDVBErrors.secondCall.args[0].errorcode).to.equal('C02');
+        });
+
+        it('should fall back to C00 when ORB has no connection check', function () {
+            delete window.orbNetwork.resolveConnectionError;
+            requestFails('http://hbbtv1.test:81/DASH/seg_1.m4s');
+
+            expect(dashMetrics.addDVBErrors.firstCall.args[0].errorcode).to.equal(DVBErrors.DNS_RESOLUTION_FAILED);
+        });
+
+        it('should not report a request the player aborted itself', function () {
+            requestFails('http://hbbtv1.test:81/DASH/seg_1.m4s', true);
+
+            expect(resolveConnectionError.called).to.be.false;
+            expect(dashMetrics.addDVBErrors.called).to.be.false;
+        });
     });
 });
