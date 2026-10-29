@@ -37,7 +37,8 @@ function DVBErrorsTranslator(config) {
 
     config = config || {};
     let instance,
-        mpd;
+        mpd,
+        corruptMediaReported = false;
     const eventBus = config.eventBus;
     const dashMetrics = config.dashMetrics;
     const metricsConstants = config.metricsConstants;
@@ -114,8 +115,7 @@ function DVBErrorsTranslator(config) {
             (vo.responsecode >= 400) || // HTTP error status code
             (vo.responsecode < 100) || // unknown status codes
             (vo.responsecode >= 600)) { // unknown status codes
-            const parsed = new URL(vo.url, document.baseURI);
-            const ipaddress = (window.orbNetwork ? window.orbNetwork.resolveHostAddress(parsed.hostname) : undefined);
+            const ipaddress = _resolveIpAddress(vo.url);
             let repObj = {
                 errorcode:          vo.responsecode,
                 url:                vo.url,
@@ -146,6 +146,36 @@ function DVBErrorsTranslator(config) {
         }
     }
 
+    function _resolveIpAddress(url) {
+        const parsed = new URL(url, document.baseURI);
+        return (window.orbNetwork ? window.orbNetwork.resolveHostAddress(parsed.hostname) : undefined);
+    }
+
+    function _isIsoBmff(request) {
+        const representation = request.representation || {};
+        const mimeType = representation.mimeType || (representation.mediaInfo && representation.mediaInfo.mimeType) || '';
+        return /mp4/i.test(mimeType);
+    }
+
+    // ORB: A SourceBuffer error is only raised by the MSE append error algorithm, i.e. when the
+    // byte stream could not be parsed. For ISO BMFF segments this is "M00" (TS 103 285 10.12.3).
+    // The decode error the browser raises on the media element afterwards is the same incident,
+    // so it must not be reported again as "M01" (DASH-ERRORREP0008).
+    function onSourceBufferError(e) {
+        const request = e && e.lastRequestAppended;
+        if (!request || !request.url) {
+            return;
+        }
+
+        corruptMediaReported = true;
+        report({
+            errorcode: _isIsoBmff(request) ? DVBErrors.CORRUPT_MEDIA_ISOBMFF : DVBErrors.CORRUPT_MEDIA_OTHER,
+            url: request.url,
+            servicelocation: request.serviceLocation,
+            ipaddress: _resolveIpAddress(request.url)
+        });
+    }
+
     function onMetricEvent(e) {
         switch (e.metric) {
             case metricsConstants.HTTP_REQUEST:
@@ -159,6 +189,9 @@ function DVBErrorsTranslator(config) {
     function onPlaybackError(e) {
         let reason = e.error ? e.error.code : 0;
         let errorcode;
+        // Only the media element error directly following a failed append belongs to it
+        const followsCorruptMediaReport = corruptMediaReported;
+        corruptMediaReported = false;
 
         switch (reason) {
             // ORB: Disabled as not expected by HbbTV tests
@@ -166,6 +199,9 @@ function DVBErrorsTranslator(config) {
             //    errorcode = DVBErrors.CONNECTION_ERROR;
             //    break;
             case MediaError.MEDIA_ERR_DECODE:
+                if (followsCorruptMediaReport) {
+                    return;
+                }
                 errorcode = DVBErrors.CORRUPT_MEDIA_OTHER;
                 break;
             default:
@@ -187,6 +223,7 @@ function DVBErrorsTranslator(config) {
         eventBus.on(Events.METRIC_ADDED, onMetricEvent, instance);
         eventBus.on(Events.METRIC_UPDATED, onMetricEvent, instance);
         eventBus.on(Events.PLAYBACK_ERROR, onPlaybackError, instance);
+        eventBus.on(Events.SOURCE_BUFFER_ERROR, onSourceBufferError, instance);
         eventBus.on(
             MetricsReportingEvents.BECAME_REPORTING_PLAYER,
             onBecameReporter,
@@ -204,11 +241,13 @@ function DVBErrorsTranslator(config) {
         eventBus.off(Events.METRIC_ADDED, onMetricEvent, instance);
         eventBus.off(Events.METRIC_UPDATED, onMetricEvent, instance);
         eventBus.off(Events.PLAYBACK_ERROR, onPlaybackError, instance);
+        eventBus.off(Events.SOURCE_BUFFER_ERROR, onSourceBufferError, instance);
         eventBus.off(
             MetricsReportingEvents.BECAME_REPORTING_PLAYER,
             onBecameReporter,
             instance
         );
+        corruptMediaReported = false;
     }
 
     instance = {

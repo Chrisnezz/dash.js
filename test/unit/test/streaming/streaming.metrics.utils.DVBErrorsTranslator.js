@@ -82,4 +82,84 @@ describe('DVBErrorsTranslator', function () {
             expect(becomeReporter(undefined).servicelocation).to.not.be.ok;
         });
     });
+
+    describe('corrupt media (M00/M01) reports', function () {
+        const segmentUrl = 'http://a.example.com/Vseg_3.m4s';
+
+        function appendFails(representation) {
+            eventBus.trigger(Events.SOURCE_BUFFER_ERROR, {
+                error: {},
+                lastRequestAppended: { url: segmentUrl, serviceLocation: 'hbbtvTest', representation }
+            });
+        }
+
+        function decodeError() {
+            eventBus.trigger(MediaPlayerEvents.PLAYBACK_ERROR, { error: { code: MediaError.MEDIA_ERR_DECODE } });
+        }
+
+        beforeEach(function () {
+            eventBus.trigger(Events.MANIFEST_UPDATED, { manifest: { url: 'http://example.com/test.mpd' } });
+        });
+
+        it('should report M00 with url and servicelocation when an ISO BMFF segment cannot be appended', function () {
+            appendFails({ mimeType: 'video/mp4' });
+
+            expect(dashMetrics.addDVBErrors.calledOnce).to.be.true;
+            const report = dashMetrics.addDVBErrors.firstCall.args[0];
+            expect(report.errorcode).to.equal(DVBErrors.CORRUPT_MEDIA_ISOBMFF);
+            expect(report.url).to.equal(segmentUrl);
+            expect(report.servicelocation).to.equal('hbbtvTest');
+        });
+
+        it('should use the AdaptationSet mimeType when the Representation has none', function () {
+            appendFails({ mimeType: null, mediaInfo: { mimeType: 'audio/mp4' } });
+
+            expect(dashMetrics.addDVBErrors.firstCall.args[0].errorcode).to.equal(DVBErrors.CORRUPT_MEDIA_ISOBMFF);
+        });
+
+        it('should report M01 when a non ISO BMFF segment cannot be appended', function () {
+            appendFails({ mimeType: 'video/webm' });
+
+            expect(dashMetrics.addDVBErrors.firstCall.args[0].errorcode).to.equal(DVBErrors.CORRUPT_MEDIA_OTHER);
+        });
+
+        it('should not report M01 for the decode error that follows a failed append', function () {
+            appendFails({ mimeType: 'video/mp4' });
+            decodeError();
+
+            expect(dashMetrics.addDVBErrors.calledOnce).to.be.true;
+            expect(dashMetrics.addDVBErrors.firstCall.args[0].errorcode).to.equal(DVBErrors.CORRUPT_MEDIA_ISOBMFF);
+        });
+
+        it('should report M01 for a decode error without a failed append', function () {
+            decodeError();
+
+            expect(dashMetrics.addDVBErrors.calledOnce).to.be.true;
+            expect(dashMetrics.addDVBErrors.firstCall.args[0].errorcode).to.equal(DVBErrors.CORRUPT_MEDIA_OTHER);
+        });
+
+        it('should only suppress the first decode error after a failed append', function () {
+            appendFails({ mimeType: 'video/mp4' });
+            decodeError();
+            decodeError();
+
+            expect(dashMetrics.addDVBErrors.calledTwice).to.be.true;
+            expect(dashMetrics.addDVBErrors.secondCall.args[0].errorcode).to.equal(DVBErrors.CORRUPT_MEDIA_OTHER);
+        });
+
+        it('should not suppress a later decode error when another media error followed the failed append', function () {
+            appendFails({ mimeType: 'video/mp4' });
+            eventBus.trigger(MediaPlayerEvents.PLAYBACK_ERROR, { error: { code: MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED } });
+            decodeError();
+
+            expect(dashMetrics.addDVBErrors.calledTwice).to.be.true;
+            expect(dashMetrics.addDVBErrors.secondCall.args[0].errorcode).to.equal(DVBErrors.CORRUPT_MEDIA_OTHER);
+        });
+
+        it('should ignore a SourceBuffer error without a known request', function () {
+            eventBus.trigger(Events.SOURCE_BUFFER_ERROR, { error: {}, lastRequestAppended: null });
+
+            expect(dashMetrics.addDVBErrors.called).to.be.false;
+        });
+    });
 });
