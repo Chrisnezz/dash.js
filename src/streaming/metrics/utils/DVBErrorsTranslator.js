@@ -176,6 +176,42 @@ function DVBErrorsTranslator(config) {
         });
     }
 
+    // ORB: A downloadable font (urn:dvb:dash:fontdownload:2014) failed to load. FontFace.load() does
+    // not say why, so request the font once more to classify the failure (DASH-ERRORREP0027/28/29):
+    // an HTTP error is reported with its status code, a connection failure as for media requests,
+    // and a font that downloads but cannot be loaded as corrupt media "M01".
+    function onFontDownloadFailed(font) {
+        if (!font || !font.url) {
+            return;
+        }
+
+        const terror = new Date();
+        const reportFontError = (errorcode) => {
+            report({
+                errorcode,
+                url: font.url,
+                terror,
+                servicelocation: _getPrimaryServiceLocation(),
+                ipaddress: _resolveIpAddress(font.url)
+            });
+        };
+
+        const xhr = new XMLHttpRequest();
+        xhr.open('GET', font.url, true);
+        xhr.responseType = 'arraybuffer';
+        xhr.onloadend = () => {
+            const status = xhr.status;
+            if (status === 0) {
+                reportFontError(DVBErrors.DNS_RESOLUTION_FAILED);
+            } else if (status < 200 || status >= 400) {
+                reportFontError(status);
+            } else {
+                reportFontError(DVBErrors.CORRUPT_MEDIA_OTHER);
+            }
+        };
+        xhr.send();
+    }
+
     function onMetricEvent(e) {
         switch (e.metric) {
             case metricsConstants.HTTP_REQUEST:
@@ -224,6 +260,7 @@ function DVBErrorsTranslator(config) {
         eventBus.on(Events.METRIC_UPDATED, onMetricEvent, instance);
         eventBus.on(Events.PLAYBACK_ERROR, onPlaybackError, instance);
         eventBus.on(Events.SOURCE_BUFFER_ERROR, onSourceBufferError, instance);
+        eventBus.on(Events.DVB_FONT_DOWNLOAD_FAILED, onFontDownloadFailed, instance);
         eventBus.on(
             MetricsReportingEvents.BECAME_REPORTING_PLAYER,
             onBecameReporter,
@@ -242,6 +279,7 @@ function DVBErrorsTranslator(config) {
         eventBus.off(Events.METRIC_UPDATED, onMetricEvent, instance);
         eventBus.off(Events.PLAYBACK_ERROR, onPlaybackError, instance);
         eventBus.off(Events.SOURCE_BUFFER_ERROR, onSourceBufferError, instance);
+        eventBus.off(Events.DVB_FONT_DOWNLOAD_FAILED, onFontDownloadFailed, instance);
         eventBus.off(
             MetricsReportingEvents.BECAME_REPORTING_PLAYER,
             onBecameReporter,

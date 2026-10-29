@@ -7,6 +7,7 @@ import MediaPlayerEvents from '../../../../src/streaming/MediaPlayerEvents.js';
 import EventBus from '../../../../src/core/EventBus.js';
 
 import {expect} from 'chai';
+import {fakeXhr} from 'nise';
 import sinon from 'sinon';
 
 describe('DVBErrorsTranslator', function () {
@@ -160,6 +161,54 @@ describe('DVBErrorsTranslator', function () {
             eventBus.trigger(Events.SOURCE_BUFFER_ERROR, { error: {}, lastRequestAppended: null });
 
             expect(dashMetrics.addDVBErrors.called).to.be.false;
+        });
+    });
+
+    describe('DVB font download failure reports', function () {
+        const fontUrl = 'http://a.example.com/fonts/font.woff';
+        let xhr;
+
+        function fontDownloadFails(status) {
+            eventBus.trigger(MediaPlayerEvents.DVB_FONT_DOWNLOAD_FAILED, { url: fontUrl, fontFamily: 'Hanken', isEssential: true });
+            expect(xhr.requests.length).to.equal(1);
+            expect(xhr.requests[0].url).to.equal(fontUrl);
+            if (status === 0) {
+                xhr.requests[0].error();
+            } else {
+                xhr.requests[0].respond(status, {}, '');
+            }
+            expect(dashMetrics.addDVBErrors.calledOnce).to.be.true;
+            return dashMetrics.addDVBErrors.firstCall.args[0];
+        }
+
+        beforeEach(function () {
+            xhr = fakeXhr.useFakeXMLHttpRequest();
+            window.XMLHttpRequest = xhr;
+            xhr.requests = [];
+            xhr.onCreate = (request) => xhr.requests.push(request);
+            eventBus.trigger(Events.MANIFEST_UPDATED, {
+                manifest: { url: 'http://example.com/test.mpd', BaseURL: [{ __text: 'http://a.example.com/', serviceLocation: 'hbbtvTest' }] }
+            });
+        });
+
+        afterEach(function () {
+            xhr.restore();
+        });
+
+        it('should report M01 with the font url when the font downloads but cannot be loaded', function () {
+            const report = fontDownloadFails(200);
+
+            expect(report.errorcode).to.equal(DVBErrors.CORRUPT_MEDIA_OTHER);
+            expect(report.url).to.equal(fontUrl);
+            expect(report.servicelocation).to.equal('hbbtvTest');
+        });
+
+        it('should report the HTTP status code when the font request fails', function () {
+            expect(fontDownloadFails(404).errorcode).to.equal(404);
+        });
+
+        it('should report a connection failure like a failed media request', function () {
+            expect(fontDownloadFails(0).errorcode).to.equal(DVBErrors.DNS_RESOLUTION_FAILED);
         });
     });
 });
